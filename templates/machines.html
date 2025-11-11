@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Data Butcher — Painel de Máquinas</title>
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --accent:#ef4444; --muted:#b9c2d0; --glass:rgba(255,255,255,0.05);
+      --radius:12px; --text:#e6eef6; font-family:Inter,system-ui,sans-serif; --base-font-size:16px;
+    }
+    [data-theme="light"]{
+      --bg:#f4f6fb; --card:#ffffff; --accent:#dc2626; --muted:#4b5563; --glass:rgba(0,0,0,0.05); --text:#111827;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;font-size:var(--base-font-size);transition:background 0.25s,color 0.25s,font-size 0.18s}
+
+    header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:var(--card);box-shadow:0 2px 10px rgba(0,0,0,0.25)}
+    .menu-btn{background:transparent;border:0;color:var(--text);font-size:22px;cursor:pointer}
+    .title{font-size:18px;font-weight:600}
+
+    /* Sidebar */
+    #sidebar{position:fixed;top:0;left:-280px;width:280px;height:100%;background:var(--card);border-right:1px solid var(--glass);transition:left 0.28s ease;padding:18px;display:flex;flex-direction:column;gap:12px;z-index:30}
+    #sidebar.open{left:0}
+    #closeSidebar{align-self:flex-end;background:transparent;color:var(--text);border:0;font-size:18px;cursor:pointer}
+    #sidebar h3{font-size:15px;margin-top:6px;color:var(--accent)}
+    #sidebar label{font-size:13px;color:var(--text)}
+    #sidebar select{width:100%;padding:8px;border-radius:8px;border:1px solid var(--glass);background:transparent;color:var(--text)}
+    #logoutBtn{margin-top:auto;padding:10px;border-radius:10px;border:0;cursor:pointer;background:linear-gradient(90deg,var(--accent),#fb923c);color:#061022;font-weight:700}
+
+    /* Machines grid */
+    main{flex:1;display:flex}
+    .machines{flex:1;padding:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;align-content:start}
+    .machine-card{background:var(--card);padding:16px;border-radius:12px;border:1px solid var(--glass);cursor:pointer;transition:transform .15s,box-shadow .15s}
+    .machine-card:hover{transform:translateY(-4px);box-shadow:0 8px 30px rgba(0,0,0,0.35)}
+    .machine-card h4{margin-bottom:6px}
+    .machine-card small{color:var(--muted)}
+
+    .add-card{display:flex;align-items:center;justify-content:center;padding:18px;border-radius:12px;border:2px dashed var(--accent);background:transparent;color:var(--accent);font-weight:700;cursor:pointer;transition:transform .12s}
+    .add-card:hover{transform:translateY(-3px)}
+
+    /* Modal */
+    .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:40}
+    .modal{background:var(--card);padding:22px;border-radius:12px;width:92%;max-width:480px}
+    .modal h3{margin-bottom:12px}
+    .modal form{display:grid;gap:10px}
+    .modal input{padding:10px;border-radius:8px;border:1px solid var(--glass);background:transparent;color:var(--text)}
+    .modal .row{display:flex;gap:8px}
+    .modal button{padding:10px;border-radius:8px;border:0;cursor:pointer}
+    .primary{background:linear-gradient(90deg,var(--accent),#fb923c);color:#061022;font-weight:700}
+    .ghost{background:transparent;border:1px solid var(--glass);color:var(--muted)}
+    video{width:100%;border-radius:8px;margin-top:8px}
+
+    /* Detail */
+    .detail-bg{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:40}
+    .detail{background:var(--card);padding:20px;border-radius:12px;width:94%;max-width:700px;max-height:90vh;overflow:auto}
+    .tabs{display:flex;gap:8px;margin-bottom:12px}
+    .tabs button{flex:1;padding:8px;border-radius:8px;background:transparent;border:0;color:var(--muted);cursor:pointer}
+    .tabs button.active{background:var(--glass);color:var(--text);font-weight:600}
+    .tab-content{display:none}
+    .tab-content.active{display:block}
+    .muted{color:var(--muted)}
+
+    /* Toast */
+    .toast{position:fixed;bottom:20px;right:20px;background:rgba(0,0,0,0.7);color:#fff;padding:10px 14px;border-radius:8px;opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s;z-index:60}
+    .toast.show{opacity:1;transform:translateY(0)}
+
+    @media (max-width:880px){
+      .machines{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <button class="menu-btn" id="menuBtn">☰</button>
+    <div class="title">Data Butcher — Painel</div>
+  </header>
+
+  <aside id="sidebar">
+    <button id="closeSidebar">✕</button>
+    <h3 id="cfgTitle">Configurações</h3>
+
+    <label id="langLabel">Linguagem</label>
+    <select id="langSelect"><option value="pt">Português</option><option value="en">English</option></select>
+
+    <label id="fontLabel">Tamanho da Fonte</label>
+    <select id="fontSelect"><option value="small">Pequeno</option><option value="medium">Médio</option><option value="large">Grande</option></select>
+
+    <label id="themeLabel">Modo de Exibição</label>
+    <select id="themeSelect"><option value="dark">Escuro</option><option value="light">Claro</option></select>
+
+    <button id="logoutBtn">Sair da Conta</button>
+  </aside>
+
+  <main>
+    <section class="machines" id="machines"></section>
+  </main>
+
+  <!-- Modal Adicionar -->
+  <div class="modal-bg" id="addModal">
+    <div class="modal">
+      <h3 id="modalTitle">Nova Máquina</h3>
+      <form id="addForm">
+        <input id="machineName" type="text" placeholder="Nome da Máquina" required />
+        <input id="machineCode" type="text" placeholder="Código / QR" required />
+        <button type="button" class="ghost" id="scanQR">📷 Ler QR Code</button>
+        <video id="video" playsinline></video>
+        <div class="row" style="justify-content:flex-end">
+          <button type="button" class="ghost" id="cancelAdd">Cancelar</button>
+          <button type="submit" class="primary">Adicionar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Detail -->
+  <div class="detail-bg" id="detailBg">
+    <div class="detail">
+      <h3 id="detailTitle"></h3>
+      <div class="tabs">
+        <button class="active" data-tab="hist" id="tabHist">Histórico</button>
+        <button data-tab="conf" id="tabConf">Configurações</button>
+        <button data-tab="rem" id="tabRem">Remover</button>
+      </div>
+      <div id="hist" class="tab-content active"><p class="muted" id="histContent">Histórico de uso e reparos (mock).</p></div>
+      <div id="conf" class="tab-content"><p class="muted" id="confContent">Configurações (voltagem, velocidade, temperatura) — mock.</p></div>
+      <div id="rem" class="tab-content">
+        <p class="muted" id="remContent">Digite o código da máquina para confirmar a remoção:</p>
+        <div class="row"><input id="confirmCode" placeholder="Código da máquina" /><button id="confirmRemove" class="primary">Remover</button></div>
+      </div>
+      <div style="text-align:right;margin-top:12px"><button id="closeDetail" class="ghost">Fechar</button></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    // Elements
+    const menuBtn = document.getElementById('menuBtn');
+    const sidebar = document.getElementById('sidebar');
+    const closeSidebar = document.getElementById('closeSidebar');
+    const machinesEl = document.getElementById('machines');
+    const addModal = document.getElementById('addModal');
+    const cancelAdd = document.getElementById('cancelAdd');
+    const addForm = document.getElementById('addForm');
+    const scanQR = document.getElementById('scanQR');
+    const video = document.getElementById('video');
+    const detailBg = document.getElementById('detailBg');
+    const detailTitle = document.getElementById('detailTitle');
+    const closeDetail = document.getElementById('closeDetail');
+    const confirmRemove = document.getElementById('confirmRemove');
+    const toast = document.getElementById('toast');
+
+    // Settings controls
+    const langSelect = document.getElementById('langSelect');
+    const fontSelect = document.getElementById('fontSelect');
+    const themeSelect = document.getElementById('themeSelect');
+
+    // Data
+    let machines = [];
+    let cameraStream = null;
+
+    // UI strings
+    const UI = {
+      pt: {
+        addMachine: '+ Adicionar Máquina',
+        cfgTitle: 'Configurações',
+        langLabel: 'Linguagem',
+        fontLabel: 'Tamanho da Fonte',
+        themeLabel: 'Modo de Exibição',
+        logout: 'Sair da Conta',
+        modalTitle: 'Nova Máquina',
+        hist: 'Histórico',
+        conf: 'Configurações',
+        rem: 'Remover',
+        histContent: 'Histórico de uso e reparos (mock).',
+        confContent: 'Configurações (voltagem, velocidade, temperatura) — mock.',
+        remContent: 'Digite o código da máquina para confirmar a remoção:',
+        cancel: 'Cancelar',
+        addBtn: 'Adicionar',
+        close: 'Fechar'
+      },
+      en: {
+        addMachine: '+ Add Machine',
+        cfgTitle: 'Settings',
+        langLabel: 'Language',
+        fontLabel: 'Font Size',
+        themeLabel: 'Theme',
+        logout: 'Log Out',
+        modalTitle: 'New Machine',
+        hist: 'History',
+        conf: 'Settings',
+        rem: 'Remove',
+        histContent: 'Usage and repair history (mock).',
+        confContent: 'Configuration (voltage, speed, temperature) — mock.',
+        remContent: 'Type the machine code to confirm removal:',
+        cancel: 'Cancel',
+        addBtn: 'Add'
+      }
+    };
+
+    const MESSAGES = {
+      pt: {
+        fillFields: 'Preencha nome e código.',
+        removed: 'Máquina removida com sucesso.',
+        wrongCode: 'Código incorreto.',
+        noQR: 'Leitor de QR Code não suportado neste navegador.',
+        camErr: 'Erro ao acessar a câmera.'
+      },
+      en: {
+        fillFields: 'Please fill name and code.',
+        removed: 'Machine removed successfully.',
+        wrongCode: 'Incorrect code.',
+        noQR: 'QR Code reader not supported in this browser.',
+        camErr: 'Error accessing the camera.'
+      }
+    };
+
+    // Utilities
+    function t(key){ const lang = localStorage.getItem('db_lang') || detectLang(); return (UI[lang] && UI[lang][key]) || UI['en'][key] || ''; }
+    function msg(key){ const lang = localStorage.getItem('db_lang') || detectLang(); return (MESSAGES[lang] && MESSAGES[lang][key]) || MESSAGES['en'][key] || ''; }
+    function showToast(message, isError = false){ 
+        toast.textContent = message; 
+        toast.style.backgroundColor = isError ? 'var(--accent)' : 'rgba(0,0,0,0.7)'; // Vermelho para erro
+        toast.classList.add('show'); 
+        setTimeout(()=>toast.classList.remove('show'),2200); 
+    }
+    function detectLang(){ const nav = (navigator.language || navigator.userLanguage || 'en').toLowerCase(); if(nav.startsWith('pt')) return 'pt'; return 'en'; }
+
+    // Render machines and make sure add-card placed after last
+    function renderMachines(){
+        machinesEl.innerHTML = '';
+        machines.forEach(m => {
+            const card = document.createElement('div');
+            card.className = 'machine-card';
+            // 🔑 Usando 'nome_maquina' e '_id' (API) ao invés de 'name' e 'code' (Mock)
+            const machineIDShort = m._id ? escapeHtml(m._id.substring(0, 8)) + '...' : 'N/A';
+            card.innerHTML = `<h4>${escapeHtml(m.nome_maquina || 'Máquina sem Nome')}</h4><small>ID: ${machineIDShort}</small>`;
+            card.onclick = () => openDetail(m);
+            machinesEl.appendChild(card);
+        });
+        // Add-card (single, follows the list)
+        const addCard = document.createElement('div');
+        addCard.className = 'add-card';
+        addCard.textContent = t('addMachine');
+        addCard.onclick = openAddModal;
+        machinesEl.appendChild(addCard);
+    }
+
+    // escape to avoid injection
+    function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    // Modal controls
+    function openAddModal(){
+      // set modal texts
+      const lang = localStorage.getItem('db_lang') || detectLang();
+      safeSetText('modalTitle', UI[lang].modalTitle);
+      const cancel = document.getElementById('cancelAdd'); if(cancel) safeSetTextElement(cancel, UI[lang].cancel);
+      const addBtn = addForm.querySelector('button.primary'); if(addBtn) safeSetTextElement(addBtn, UI[lang].addBtn);
+      addModal.style.display = 'flex';
+    }
+    function closeAddModal(){ addModal.style.display = 'none'; stopCamera(); }
+
+    addForm.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const name = document.getElementById('machineName').value.trim();
+  const code = document.getElementById('machineCode').value.trim();
+  
+  if(!name || !code) return showToast(msg('fillFields'));
+
+  try {
+    const response = await fetch('/api/machines', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({
+        nome_maquina: name,
+        codigo_qr: code
+      })
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      showToast('Máquina adicionada com sucesso!');
+      
+      // 👇 Aceita tanto { machine: {...} } quanto {...}
+      const newMachine = data.machine || data;
+      machines.push(newMachine);
+
+      renderMachines();
+      addForm.reset();
+      closeAddModal();
+    } else {
+      console.error("Erro do servidor:", data);
+      showToast(`Erro ao adicionar: ${data.error || 'Falha desconhecida.'}`, true);
+    }
+  } catch (error) {
+    console.error('Erro ao adicionar máquina:', error);
+    showToast('Erro de conexão com o servidor.', true);
+  }
+});
+
+    cancelAdd.addEventListener('click', closeAddModal);
+
+    // Detail with independent sub-tabs
+    function openDetail(machine){
+        // 🔑 Usando 'nome_maquina' da API
+        detailTitle.textContent = machine.nome_maquina || '';
+        
+        // set tab labels and content based on language
+        const lang = localStorage.getItem('db_lang') || detectLang();
+        safeSetText('tabHist', UI[lang].hist);
+        safeSetText('tabConf', UI[lang].conf);
+        safeSetText('tabRem', UI[lang].rem);
+        safeSetText('histContent', UI[lang].histContent);
+        safeSetText('confContent', UI[lang].confContent);
+        safeSetText('remContent', UI[lang].remContent);
+        const confirmInput = document.getElementById('confirmCode'); if(confirmInput) confirmInput.value = '';
+        detailBg.style.display = 'flex';
+
+      // attach confirm remove handler specific to this machine
+      // attach confirm remove handler specific to this machine
+        confirmRemove.onclick = async ()=>{
+            const input = document.getElementById('confirmCode').value.trim();
+            // 🔑 Usamos o '_id' como código de confirmação (a chave para a API)
+            const machineIDToConfirm = machine._id; 
+            
+            // Permite confirmar com o ID completo, os 8 primeiros caracteres ou o nome da máquina
+            if(input === machineIDToConfirm || input === machineIDToConfirm.substring(0, 8) || input === machine.nome_maquina){
+                try {
+                    const response = await fetch(`/api/machines/${machine._id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if(response.ok) {
+                        machines = machines.filter(x => x._id !== machine._id);
+                        renderMachines();
+                        detailBg.style.display='none';
+                        showToast(msg('removed'));
+                    } else {
+                        showToast(`Erro ao remover: ${data.error || 'Falha na remoção da API.'}`, true);
+                    }
+                } catch(error) {
+                    showToast('Erro de conexão ao remover máquina.', true);
+                }
+            } else {
+                showToast(msg('wrongCode'), true);
+            }
+        };
+
+      // tab behaviour
+      const tabButtons = document.querySelectorAll('.tabs button');
+      tabButtons.forEach(b=>{ b.classList.remove('active'); const target = b.dataset.tab; document.getElementById(target).classList.remove('active'); });
+      // activate first
+      const first = document.querySelector('.tabs button'); if(first){ first.classList.add('active'); document.getElementById(first.dataset.tab).classList.add('active'); }
+    }
+    closeDetail.addEventListener('click', ()=> detailBg.style.display='none');
+
+    async function loadMachines(){
+        try {
+            const response = await fetch('/api/machines', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}` 
+                }
+            });
+            
+            const data = await response.json();
+            console.log("Resposta da API:", data);
+
+            if(response.ok && data.machines) {
+                // Se o status for OK e o array 'machines' estiver presente
+                machines = data.machines; 
+                renderMachines(); 
+            } else {
+                // A requisição foi, mas a API retornou um erro
+                showToast(`Falha ao carregar máquinas: ${data.error || 'Verifique o token de autenticação.'}`, true);
+                renderMachines();
+            }
+
+        } catch(error) {
+            // Erro de rede
+            console.error('Fetch Error:', error);
+            showToast('Erro de conexão com o servidor.', true);
+            renderMachines(); 
+        }
+    }
+    // attach tab switching (delegated)
+    document.addEventListener('click', e=>{
+      const btn = e.target.closest('.tabs button');
+      if(!btn) return;
+      const tabParent = btn.parentElement;
+      const tabs = tabParent.querySelectorAll('button');
+      const contents = document.querySelectorAll('.tab-content');
+      tabs.forEach(b=>b.classList.remove('active'));
+      contents.forEach(c=>c.classList.remove('active'));
+      btn.classList.add('active');
+      const tgt = btn.dataset.tab; const el = document.getElementById(tgt); if(el) el.classList.add('active');
+    });
+
+    // Sidebar
+    menuBtn.addEventListener('click', ()=> sidebar.classList.add('open'));
+    closeSidebar.addEventListener('click', ()=> sidebar.classList.remove('open'));
+
+    // QR Code scanning (BarcodeDetector if available)
+    async function startCamera(){
+      try{
+        cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        video.srcObject = cameraStream; await video.play();
+        if('BarcodeDetector' in window){
+          const detector = new BarcodeDetector({ formats: ['qr_code'] });
+          const loop = async()=>{
+            if(video.readyState >= 2){
+              try{ const codes = await detector.detect(video); if(codes.length){ document.getElementById('machineCode').value = codes[0].rawValue; stopCamera(); return; } }
+              catch(e){ /* continue */ }
+            }
+            if(cameraStream) requestAnimationFrame(loop);
+          };
+          loop();
+        } else {
+          showToast(msg('noQR'));
+        }
+      } catch(err){ showToast(msg('camErr')); }
+    }
+    function stopCamera(){ if(cameraStream){ cameraStream.getTracks().forEach(t=>t.stop()); cameraStream = null; } video.pause(); video.srcObject = null; }
+    scanQR.addEventListener('click', startCamera);
+
+    // Language & UI apply
+    function applyUIStrings(lang){
+      // static elements
+      safeSetText('cfgTitle', UI[lang].cfgTitle);
+      safeSetText('langLabel', UI[lang].langLabel);
+      safeSetText('fontLabel', UI[lang].fontLabel);
+      safeSetText('themeLabel', UI[lang].themeLabel);
+      safeSetText('logoutBtn', UI[lang].logout);
+      safeSetText('modalTitle', UI[lang].modalTitle);
+      // update add-card via re-render
+      renderMachines();
+    }
+
+    function applyLanguageSafe(lang){ localStorage.setItem('db_lang', lang); applyUIStrings(lang); showToast(lang==='pt' ? 'Idioma: Português' : 'Language: English'); }
+
+    // Font
+    function applyFontSize(size){ const sizes = { small: 14, medium: 16, large: 18 }; const value = sizes[size] || 16; document.documentElement.style.setProperty('--base-font-size', value + 'px'); localStorage.setItem('db_font', size); }
+
+    // Theme
+    function applyTheme(theme){ if(theme === 'light') document.documentElement.setAttribute('data-theme','light'); else document.documentElement.removeAttribute('data-theme'); localStorage.setItem('db_theme', theme); }
+
+    // Safe setter helpers
+    function safeSetText(id, text){ const el = document.getElementById(id); if(el) el.textContent = text; }
+    function safeSetTextElement(el, text){ if(el) el.textContent = text; }
+
+    // Initialization
+    // Initialization - 🔑 ALTERADO AQUI
+    window.addEventListener('DOMContentLoaded', ()=>{
+        const lang = localStorage.getItem('db_lang') || detectLang();
+        const font = localStorage.getItem('db_font') || 'medium';
+        const theme = localStorage.getItem('db_theme') || 'dark';
+
+        if(langSelect) langSelect.value = lang;
+        if(fontSelect) fontSelect.value = font;
+        if(themeSelect) themeSelect.value = theme;
+
+        applyLanguageSafe(lang);
+        applyFontSize(font);
+        applyTheme(theme);
+
+        // wire settings
+        if(langSelect) langSelect.addEventListener('change', ()=>{ applyLanguageSafe(langSelect.value); });
+        if(fontSelect) fontSelect.addEventListener('change', ()=>{ applyFontSize(fontSelect.value); });
+        if(themeSelect) themeSelect.addEventListener('change', ()=>{ applyTheme(themeSelect.value); });
+
+        // wire actions
+        document.getElementById('logoutBtn')?.addEventListener('click', () => {
+  // Limpa o token e outras preferências, se desejar
+  localStorage.removeItem('token');
+  
+  // (Opcional) limpar outras configs salvas
+  // localStorage.removeItem('db_lang');
+  // localStorage.removeItem('db_font');
+  // localStorage.removeItem('db_theme');
+
+  // Feedback visual
+  showToast(t('logout'));
+
+  // Redireciona para a página de login após 1s
+  setTimeout(() => {
+    window.location.href = '/'; // ajuste a URL conforme seu app
+  }, 1000);
+});
+
+        
+        // 🚀 Chamada para carregar as máquinas da API
+        loadMachines();
+    });
+
+    // cleanup
+    window.addEventListener('beforeunload', ()=>{ stopCamera(); });
+  </script>
+</body>
+</html>

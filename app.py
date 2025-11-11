@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, session
+from flask import Flask, request, jsonify, session, render_template
 from flask_cors import CORS
 from functools import wraps
 import jwt
@@ -18,7 +18,7 @@ load_dotenv()
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'chave-secreta-padrao')
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'jwt-chave-secreta')
-CORS(app)  # Habilita CORS para o frontend
+CORS(app, supports_credentials=True)  # Habilita CORS para o frontend
 
 usuario = os.getenv('MONGO_USER')
 senha = os.getenv('MONGO_PASS')
@@ -59,19 +59,30 @@ def token_required(f):
     return decorated
 
 # Rotas de Autenticação
+
+@app.route('/')
+def home():
+    return render_template('TelaInicial.html')
+
+@app.route('/machines')
+def machines():
+    return render_template('machines.html')
+
 @app.route('/api/auth/register', methods=['POST'])
 def register():
     try:
         data = request.get_json()
-        nome_usuario = data.get('nome_usuario')
-        senha = data.get('senha')
+        nome_usuario = data.get('name')
+        senha = data.get('password')
+        empresa = data.get('company')
+        email = data.get('email')
         
         if not nome_usuario or not senha:
             return jsonify({'error': 'Usuário e senha são obrigatórios'}), 400
         
-        if gerencia_usuario.cadastrar_usuario(nome_usuario, senha):
+        if gerencia_usuario.cadastrar_usuario(nome_usuario, senha, email, empresa):
             return jsonify({'message': 'Usuário cadastrado com sucesso!'}), 201
-        else:
+        else: 
             return jsonify({'error': 'Erro ao cadastrar usuário'}), 400
             
     except Exception as e:
@@ -114,6 +125,7 @@ def add_machine(current_user_id):
     try:
         data = request.get_json()
         nome_maquina = data.get('nome_maquina')
+        codigo = data.get('codigo')
         
         if not nome_maquina:
             return jsonify({'error': 'Nome da máquina é obrigatório'}), 400
@@ -143,7 +155,7 @@ def list_machines(current_user_id):
         try:
             for maquina in maquinas:
                 maquina_list.append({
-                    '_id:': str(maquina['_id']),
+                    '_id': str(maquina['_id']),
                     'nome_maquina': maquina.get('nome_maquina',''),
                     'id_usuario': str(maquina.get('id_usuario', ''))
                 })
