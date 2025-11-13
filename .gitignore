@@ -1,0 +1,202 @@
+# ===========================================
+# 🔐 ARQUIVOS SENSÍVEIS - NUNCA COMMITAR!
+# ===========================================
+.env
+.env.local
+.env.production
+.env.development
+*.key
+*.pem
+*.cert
+secrets.json
+config_private.py
+firebase-key.json
+serviceAccountKey.json
+
+# Credenciais do MongoDB Atlas (já expostas - REGERAR!)
+mongodb_credentials.txt
+mongo_uri.txt
+
+# ===========================================
+# 🐍 PYTHON
+# ===========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ===========================================
+# 🏠 AMBIENTES VIRTUAIS
+# ===========================================
+.venv
+venv/
+ENV/
+env/
+virtualenv/
+pythonenv/
+
+# ===========================================
+# 🔧 IDEs E EDITORES
+# ===========================================
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Eclipse
+.pydevproject
+.project
+.metadata
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.classpath
+.settings/
+.loadpath
+
+# ===========================================
+# 📊 LOGS E DADOS TEMPORÁRIOS
+# ===========================================
+*.log
+logs/
+pytestdebug.log
+*.pot
+*.py,cover
+.coverage
+.coverage.*
+.coverage
+*.cover
+.hypothesis/
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ===========================================
+# 🗄️ BANCO DE DADOS LOCAL
+# ===========================================
+*.db
+*.sqlite
+*.sqlite3
+instance/
+mongo_data/
+mongodb_data/
+data/
+*.mongo
+
+# ===========================================
+# 🖼️ ARQUIVOS DO SISTEMA
+# ===========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ===========================================
+# 📦 DEPLOY E BUILD
+# ===========================================
+.cache
+nosetests.xml
+coverage.xml
+*,cover
+.hypothesis/
+.pytest_cache/
+/.coverage
+/.tox/
+/.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.coverage
+.coverage.*
+.coverage
+
+# ===========================================
+# 🔄 OUTROS
+# ===========================================
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.nova/
+
+# Flask
+instance/
+
+# Scrapy
+.scrapy
+
+# Sphinx
+docs/_build/
+
+# PyBuilder
+target/
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# poetry
+poetry.lock
+
+# pdm
+.pdm.toml
+
+# End of https://www.toptal.com/developers/gitignore/api/python,flask
