@@ -69,6 +69,81 @@
     @media (max-width:880px){
       .machines{grid-template-columns:1fr}
     }
+
+    
+    
+    input[type="number"] {
+      font-size: 16px;            /* Ajuste do tamanho */
+      color: #fff;                /* Texto branco */
+      background: transparent;    /* Fundo transparente */
+      border: none;               /* Remove borda padrão */
+      border-bottom: 2px solid #fff; /* Linha branca */
+      padding: 5px;
+      width: 150px;               /* Ajuste largura */
+    }
+
+    input[type="number"]:focus {
+      border-bottom: 2px solid #fb923c; /* Linha verde ao focar */
+      outline: none;                    /* Remove contorno padrão */
+    }
+    
+    input[type="number"]::placeholder {
+      color: rgba(255,255,255,0.6); /* Placeholder branco com opacidade */
+    }
+
+    input[type="number"]:focus {
+      border-color: #fb923c;        /* Cor da borda ao focar */
+      box-shadow: 0 0 8px rgba(175, 134, 76, 0.5);
+    }
+
+    
+    #validationHint {
+      font-size: 12px;      /* Deixa a fonte menor */
+      color: #ccc;          /* Cor mais suave */
+      display: block;       /* Garante que fique em linha separada */
+      margin-top: 8px;      /* Espaço acima */
+      border: none;         /* Remove qualquer borda */
+      background: transparent; /* Fundo transparente */
+
+
+    }
+
+    /* Botão START */
+    #startBtn {
+      width: 100px;
+      padding: 3px;
+      background: transparent;       /* Fundo transparente */
+      color: #fff;                   /* Texto branco */
+      border: 2px solid #4CAF50;     /* Borda verde */
+      border-radius: 8px;            /* Cantos arredondados */
+      font-size: 13px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    #startBtn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    #startBtn:hover:enabled {
+      background: #4CAF50;           /* Fundo verde ao hover */
+      color: #000;                   /* Texto preto */
+    }
+
+    /* Botão Redefinir */
+    #resetBtn {
+      width: 100px;
+      padding: 3px;
+      background: transparent;
+      color: #fff;
+      border: 2px solid #f44336;     /* Borda vermelha */
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
   </style>
 </head>
 <body>
@@ -124,8 +199,128 @@
         <button data-tab="rem" id="tabRem">Remover</button>
       </div>
       <div id="hist" class="tab-content active"><p class="muted" id="histContent">Histórico de uso e reparos (mock).</p></div>
-      <div id="conf" class="tab-content"><p class="muted" id="confContent">Configurações (voltagem, velocidade, temperatura) — mock.</p></div>
-      <div id="rem" class="tab-content">
+      <div id="conf" class="tab-content"><p class="muted" id="confContent">Configurações (voltagem, velocidade, temperatura) — mock.</p><br><br>
+      <div class="row">
+    <div>
+      <label for="voltagem">Voltagem (V)</label>
+      <input id="voltagem" type="number" step="1" />
+      
+      <div class="error" id="voltagemErr"></div>
+    </div>
+    <div>
+      <label for="velocidade">Velocidade (RPM)</label>
+      <input id="velocidade" type="number" step="50" />
+      <div class="error" id="velocidadeErr"></div>
+    </div>
+    <div>
+      <label for="temperatura">Temperatura (°C)</label>
+      <input id="temperatura" type="number" step="1" />
+    <div class="error" id="temperaturaErr"></div>
+  </div><br>
+
+  
+  <div class="actions">
+    <button id="resetBtn" type="button" class="btn btn-outline">Redefinir</button>
+    <button id="startBtn" type="button" class="btn btn-primary" disabled>START</button>
+    <div class="hint" id="validationHint">Defina valores válidos para habilitar o START.</div>
+  </div>
+  <br><br>
+  <div>
+  <h3>Valores Limites do Fabricante</h3>
+  <label>Voltagem (V): 
+    <input type="number" id="voltagem" min="220" max="380" placeholder="220-380">
+  </label><br>
+
+  <label>Velocidade (RPM): 
+    <input type="number" id="velocidade" min="500" max="3000" placeholder="500-3000">
+  </label><br>
+
+  <label>Temperatura (°C): 
+    <input type="number" id="temperatura" min="20" max="120" placeholder="20-120">
+  </label><br>
+</div>
+<div class="actions">
+    <button id="resetBtn" type="button" class="btn btn-outline">Redefinir</button>
+  </div>
+
+<script>
+  const startBtn = document.getElementById('startBtn');
+  const inputs = ['voltagem','velocidade','temperatura'];
+
+  // Validação dos campos
+  inputs.forEach(id => {
+    document.getElementById(id).addEventListener('input', validate);
+  });
+
+  function validate() {
+    const v = parseInt(document.getElementById('voltagem').value);
+    const rpm = parseInt(document.getElementById('velocidade').value);
+    const t = parseInt(document.getElementById('temperatura').value);
+
+    if (v>=220 && v<=380 && rpm>=500 && rpm<=3000 && t>=20 && t<=120) {
+      startBtn.disabled = false;
+    } else {
+      startBtn.disabled = true;
+    }
+  }
+
+  // Envio para API ao clicar em START
+  startBtn.addEventListener('click', async () => {
+    const token = localStorage.getItem('token'); // JWT salvo após login
+    const machineId = 'ID_DA_MAQUINA'; // Substituir dinamicamente pelo ID real
+    const body = {
+      voltagem: parseInt(document.getElementById('voltagem').value),
+      velocidade: parseInt(document.getElementById('velocidade').value),
+      temperatura: parseInt(document.getElementById('temperatura').value)
+    };
+
+    try {
+      const res = await fetch(`/api/machines/${machineId}/start`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json();
+      alert(data.message || data.error);
+    } catch (err) {
+      alert('Erro ao enviar dados: ' + err);
+    }
+  });
+
+  const resetBtn = document.getElementById('resetBtn');
+
+resetBtn.addEventListener('click', async () => {
+  // Resetar valores no frontend
+  document.getElementById('voltagem').value = '';
+  document.getElementById('velocidade').value = '';
+  document.getElementById('temperatura').value = '';
+  startBtn.disabled = true;
+
+  // Opcional: enviar para API
+  const token = localStorage.getItem('token');
+  const machineId = 'ID_DA_MAQUINA'; // Substituir dinamicamente
+  try {
+    const res = await fetch(`/api/machines/${machineId}/reset`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    const data = await res.json();
+    alert(data.message || data.error);
+  } catch (err) {
+    alert('Erro ao redefinir: ' + err);
+  }
+});
+
+</script>
+  </div>
+    <div id="rem" class="tab-content">
         <p class="muted" id="remContent">Digite o código da máquina para confirmar a remoção:</p>
         <div class="row"><input id="confirmCode" placeholder="Código da máquina" /><button id="confirmRemove" class="primary">Remover</button></div>
       </div>
@@ -287,11 +482,34 @@
     if (response.ok) {
       showToast('Máquina adicionada com sucesso!');
       
-      // 👇 Aceita tanto { machine: {...} } quanto {...}
-      const newMachine = data.machine || data;
-      machines.push(newMachine);
+      // ✅ Faz uma nova requisição para buscar os dados completos da máquina recém-criada
+        const machineId = data.machine_id || (data.machine && data.machine._id);
 
-      renderMachines();
+        if (machineId) {
+          try {
+            const getResp = await fetch(`/api/machines/${machineId}`, {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              }
+            });
+            const machineData = await getResp.json();
+
+            if (getResp.ok) {
+              machines.push(machineData);
+              renderMachines();
+            } else {
+              console.warn('Falha ao buscar dados completos da máquina:', machineData);
+              // fallback: adiciona algo básico para não quebrar a UI
+              machines.push({ _id: machineId, nome_maquina: name });
+              renderMachines();
+            }
+          } catch (err) {
+            console.error('Erro ao buscar nova máquina:', err);
+            machines.push({ _id: machineId, nome_maquina: name });
+            renderMachines();
+          }
+        }
+
       addForm.reset();
       closeAddModal();
     } else {

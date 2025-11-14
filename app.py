@@ -276,5 +276,72 @@ def get_sensor_data(current_user_id, machine_id):
 def health_check():
     return jsonify({'status': 'healthy', 'message': 'API está funcionando!'}), 200
 
+@app.route('/api/machines/<machine_id>/start', methods=['POST'])
+@token_required
+def start_machine(current_user_id, machine_id):
+    try:
+        data = request.get_json()
+        voltagem = data.get('voltagem')
+        velocidade = data.get('velocidade')
+        temperatura = data.get('temperatura')
+
+        # Limites (exemplo)
+        if not (220 <= voltagem <= 380):
+            return jsonify({'error': 'Voltagem fora do limite (220-380V)'}), 400
+        if not (500 <= velocidade <= 3000):
+            return jsonify({'error': 'Velocidade fora do limite (500-3000 RPM)'}), 400
+        if not (20 <= temperatura <= 120):
+            return jsonify({'error': 'Temperatura fora do limite (20-120°C)'}), 400
+
+        # Verificar se máquina pertence ao usuário
+        maquina = db_gerencia.find_one('maquinas', {
+            '_id': ObjectId(machine_id),
+            'id_usuario': ObjectId(current_user_id)
+        })
+        if not maquina:
+            return jsonify({'error': 'Máquina não encontrada'}), 404
+
+        # Atualizar parâmetros
+        novos_valores = {
+            'configuracoes': {
+                'voltagem': voltagem,
+                'velocidade': velocidade,
+                'temperatura': temperatura
+            },
+            'status': 'iniciada'
+        }
+        db_gerencia.update_one('maquinas', {'_id': ObjectId(machine_id)}, novos_valores)
+
+        # Aqui poderia enviar comando real para o sensor via MQTT ou outro protocolo
+        return jsonify({'message': 'Máquina iniciada com sucesso!', 'parametros': novos_valores}), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+@app.route('/api/machines/<machine_id>/reset', methods=['POST'])
+@token_required
+def reset_machine(current_user_id, machine_id):
+    try:
+        maquina = db_gerencia.find_one('maquinas', {
+            '_id': ObjectId(machine_id),
+            'id_usuario': ObjectId(current_user_id)
+        })
+        if not maquina:
+            return jsonify({'error': 'Máquina não encontrada'}), 404
+
+        # Valores padrão
+        novos_valores = {
+            'configuracoes': {
+                'voltagem': 220,
+                'velocidade': 500,
+                'temperatura': 20
+            },
+            'status': 'parada'
+        }
+        db_gerencia.update_one('maquinas', {'_id': ObjectId(machine_id)}, novos_valores)
+        return jsonify({'message': 'Máquina redefinida com sucesso!', 'parametros': novos_valores}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
