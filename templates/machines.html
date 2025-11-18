@@ -144,6 +144,42 @@
       transition: 0.3s;
     }
 
+    #confirmCode {
+      font-size: 16px;           
+      color: #fff;                
+      background: transparent;    
+      border: none;               
+      border-bottom: 2px solid #fff; 
+      padding: 5px;
+      width: 150px; 
+    }
+
+    #confirmRemove {
+      width: 100px;
+      padding: 3px;
+      background: transparent;       
+      color: #fff;                  
+      border: 2px solid #f44336;     
+      border-radius: 8px;            
+      font-size: 13px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    #confirmCode:focus {
+      border-bottom: 2px solid #fb923c; /* Linha verde ao focar */
+      outline: none;                    /* Remove contorno padrão */
+    }
+
+    #confirmCode::placeholder {
+      color: rgba(255,255,255,0.6); /* Placeholder branco com opacidade */
+    }
+
+    #confirmCode:focus {
+      border-color: #fb923c;        /* Cor da borda ao focar */
+      box-shadow: 0 0 8px rgba(175, 134, 76, 0.5);
+    }
+
   </style>
 </head>
 <body>
@@ -228,20 +264,30 @@
   <div>
   <h3>Valores Limites do Fabricante</h3>
   <label>Voltagem (V): 
-    <input type="number" id="voltagem" min="220" max="380" placeholder="220-380">
+    <input type="number" id="voltagemLimit" min="220" max="380" placeholder="220-380">
   </label><br>
 
   <label>Velocidade (RPM): 
-    <input type="number" id="velocidade" min="500" max="3000" placeholder="500-3000">
+    <input type="number" id="velocidadeLimit" min="500" max="3000" placeholder="500-3000">
   </label><br>
 
   <label>Temperatura (°C): 
-    <input type="number" id="temperatura" min="20" max="120" placeholder="20-120">
+    <input type="number" id="temperaturaLimit" min="20" max="120" placeholder="20-120">
   </label><br>
 </div>
 <div class="actions">
     <button id="resetBtn" type="button" class="btn btn-outline">Redefinir</button>
   </div>
+  </div> </div> <div id="rem" class="tab-content">
+        <p class="muted" id="remContent">Digite o código da máquina para confirmar a remoção:</p><br>
+        <div class="row">
+          <input id="confirmCode" placeholder="Código da máquina" /><button id="confirmRemove" class="primary">Remover</button></div>
+      </div>
+    <div style="text-align:right;margin-top:12px"><button id="closeDetail" class="ghost">Fechar</button></div>
+  </div>
+</div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
   const startBtn = document.getElementById('startBtn');
@@ -318,19 +364,7 @@ resetBtn.addEventListener('click', async () => {
   }
 });
 
-</script>
-  </div>
-    <div id="rem" class="tab-content">
-        <p class="muted" id="remContent">Digite o código da máquina para confirmar a remoção:</p>
-        <div class="row"><input id="confirmCode" placeholder="Código da máquina" /><button id="confirmRemove" class="primary">Remover</button></div>
-      </div>
-      <div style="text-align:right;margin-top:12px"><button id="closeDetail" class="ghost">Fechar</button></div>
-    </div>
-  </div>
 
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
-
-  <script>
     // Elements
     const menuBtn = document.getElementById('menuBtn');
     const sidebar = document.getElementById('sidebar');
@@ -522,58 +556,58 @@ resetBtn.addEventListener('click', async () => {
   }
 });
 
-    cancelAdd.addEventListener('click', closeAddModal);
+cancelAdd.addEventListener('click', closeAddModal);
 
-    // Detail with independent sub-tabs
-    function openDetail(machine){
-        // 🔑 Usando 'nome_maquina' da API
-        detailTitle.textContent = machine.nome_maquina || '';
+// Detail with independent sub-tabs
+function openDetail(machine){
+    // 🔑 Usando 'nome_maquina' da API
+    detailTitle.textContent = machine.nome_maquina || '';
+    
+    // set tab labels and content based on language
+    const lang = localStorage.getItem('db_lang') || detectLang();
+    safeSetText('tabHist', UI[lang].hist);
+    safeSetText('tabConf', UI[lang].conf);
+    safeSetText('tabRem', UI[lang].rem);
+    safeSetText('histContent', UI[lang].histContent);
+    safeSetText('confContent', UI[lang].confContent);
+    safeSetText('remContent', UI[lang].remContent);
+    const confirmInput = document.getElementById('confirmCode'); if(confirmInput) confirmInput.value = '';
+    detailBg.style.display = 'flex';
+
+  // attach confirm remove handler specific to this machine
+  // attach confirm remove handler specific to this machine
+    confirmRemove.onclick = async ()=>{
+        const input = document.getElementById('confirmCode').value.trim();
+        // 🔑 Usamos o '_id' como código de confirmação (a chave para a API)
+        const machineIDToConfirm = machine._id; 
         
-        // set tab labels and content based on language
-        const lang = localStorage.getItem('db_lang') || detectLang();
-        safeSetText('tabHist', UI[lang].hist);
-        safeSetText('tabConf', UI[lang].conf);
-        safeSetText('tabRem', UI[lang].rem);
-        safeSetText('histContent', UI[lang].histContent);
-        safeSetText('confContent', UI[lang].confContent);
-        safeSetText('remContent', UI[lang].remContent);
-        const confirmInput = document.getElementById('confirmCode'); if(confirmInput) confirmInput.value = '';
-        detailBg.style.display = 'flex';
-
-      // attach confirm remove handler specific to this machine
-      // attach confirm remove handler specific to this machine
-        confirmRemove.onclick = async ()=>{
-            const input = document.getElementById('confirmCode').value.trim();
-            // 🔑 Usamos o '_id' como código de confirmação (a chave para a API)
-            const machineIDToConfirm = machine._id; 
-            
-            // Permite confirmar com o ID completo, os 8 primeiros caracteres ou o nome da máquina
-            if(input === machineIDToConfirm || input === machineIDToConfirm.substring(0, 8) || input === machine.nome_maquina){
-                try {
-                    const response = await fetch(`/api/machines/${machine._id}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Authorization': `Bearer ${localStorage.getItem('token')}`
-                        }
-                    });
-
-                    const data = await response.json();
-
-                    if(response.ok) {
-                        machines = machines.filter(x => x._id !== machine._id);
-                        renderMachines();
-                        detailBg.style.display='none';
-                        showToast(msg('removed'));
-                    } else {
-                        showToast(`Erro ao remover: ${data.error || 'Falha na remoção da API.'}`, true);
+        // Permite confirmar com o ID completo, os 8 primeiros caracteres ou o nome da máquina
+        if(input === machineIDToConfirm || input === machineIDToConfirm.substring(0, 8)){
+            try {
+                const response = await fetch(`/api/machines/${machine._id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
                     }
-                } catch(error) {
-                    showToast('Erro de conexão ao remover máquina.', true);
+                });
+
+                const data = await response.json();
+
+                if(response.ok) {
+                    machines = machines.filter(x => x._id !== machine._id);
+                    renderMachines();
+                    detailBg.style.display='none';
+                    showToast(msg('removed'));
+                } else {
+                    showToast(`Erro ao remover: ${data.error || 'Falha na remoção da API.'}`, true);
                 }
-            } else {
-                showToast(msg('wrongCode'), true);
+            } catch(error) {
+                showToast('Erro de conexão ao remover máquina.', true);
             }
-        };
+        } else {
+            showToast(msg('wrongCode'), true);
+        }
+    };
 
       // tab behaviour
       const tabButtons = document.querySelectorAll('.tabs button');
