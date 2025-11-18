@@ -112,13 +112,15 @@
     #startBtn {
       width: 100px;
       padding: 3px;
-      background: transparent;       /* Fundo transparente */
-      color: #fff;                   /* Texto branco */
-      border: 2px solid #4CAF50;     /* Borda verde */
-      border-radius: 8px;            /* Cantos arredondados */
+      background: linear-gradient(90deg, var(--accent), #fb923c); 
+      color: #061022;                                            
+      border: 0;                                                
+      border-radius: 8px;
       font-size: 13px;
+      font-weight: 700;                                      
       cursor: pointer;
       transition: 0.3s;
+      margin-left: 8px;
     }
 
     #startBtn:disabled {
@@ -127,8 +129,7 @@
     }
 
     #startBtn:hover:enabled {
-      background: #4CAF50;           /* Fundo verde ao hover */
-      color: #000;                   /* Texto preto */
+      filter: brightness(1.1);
     }
 
     /* Botão Redefinir */
@@ -137,29 +138,49 @@
       padding: 3px;
       background: transparent;
       color: #fff;
-      border: 2px solid #f44336;     /* Borda vermelha */
+      border: 2px solid var(--accent);     
       border-radius: 8px;
       font-size: 13px;
       cursor: pointer;
       transition: 0.3s;
     }
 
+    #resetBtn {
+      /* Estilo mantido do machines1 para o botão de remoção */
+      background: linear-gradient(90deg,var(--accent),#fb923c);
+      color:#061022;
+      font-weight:700;
+      border: 0;
+
+    }
     #confirmCode {
       font-size: 16px;           
-      color: #fff;                
+      color: var(--text);                
       background: transparent;    
       border: none;               
-      border-bottom: 2px solid #fff; 
+      border-bottom: 2px solid var(--muted); 
       padding: 5px;
       width: 150px; 
+      transition: border-bottom 0.3s;
     }
 
     #confirmRemove {
       width: 100px;
       padding: 3px;
       background: transparent;       
-      color: #fff;                  
-      border: 2px solid #f44336;     
+      color: var(--text);                  
+      border: 2px solid var(--accent);     
+      border-radius: 8px;            
+      font-size: 13px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    #saveManual {
+      width: 100px;
+      padding: 3px;
+      background: transparent;       
+      color: var(--text);                  
+      border: 2px solid var(--accent);     
       border-radius: 8px;            
       font-size: 13px;
       cursor: pointer;
@@ -167,17 +188,40 @@
     }
 
     #confirmCode:focus {
-      border-bottom: 2px solid #fb923c; /* Linha verde ao focar */
-      outline: none;                    /* Remove contorno padrão */
+      border-bottom: 2px solid var(--accent);
+      outline: none;                    
     }
 
     #confirmCode::placeholder {
-      color: rgba(255,255,255,0.6); /* Placeholder branco com opacidade */
+      color: var(--muted); 
     }
 
-    #confirmCode:focus {
-      border-color: #fb923c;        /* Cor da borda ao focar */
-      box-shadow: 0 0 8px rgba(175, 134, 76, 0.5);
+    #confirmRemove {
+      /* Estilo mantido do machines1 para o botão de remoção */
+      background: linear-gradient(90deg,var(--accent),#fb923c);
+      color:#061022;
+      font-weight:700;
+      border: 0;
+    }
+    
+    /* Adiciona padding para o textarea de registro manual */
+    #manualDesc {
+        width: 100%;
+        height: 70px;
+        padding: 8px;
+        border-radius: 8px;
+        background: transparent;
+        border: 1px solid var(--glass);
+        color: var(--text);
+        resize: vertical;
+    }
+
+    #saveManual {
+      /* Estilo mantido do machines1 para o botão de remoção */
+      background: linear-gradient(90deg,var(--accent),#fb923c);
+      color:#061022;
+      font-weight:700;
+      border: 0;
     }
 
   </style>
@@ -234,7 +278,15 @@
         <button data-tab="conf" id="tabConf">Configurações</button>
         <button data-tab="rem" id="tabRem">Remover</button>
       </div>
-      <div id="hist" class="tab-content active"><p class="muted" id="histContent">Histórico de uso e reparos (mock).</p></div>
+
+      <div id="hist" class="tab-content active">
+        <textarea id="manualDesc" placeholder="Descreva o registro..."></textarea>
+        <button id="saveManual" class="primary" style=>Salvar Registro</button>
+        <h4 style="margin-top:15px;">Histórico:</h4>
+        <div id="manualList" class="muted">Carregando...</div>
+      </div>
+
+
       <div id="conf" class="tab-content"><p class="muted" id="confContent">Configurações (voltagem, velocidade, temperatura) — mock.</p><br><br>
       <div class="row">
     <div>
@@ -255,11 +307,11 @@
   </div><br>
 
   
-  <div class="actions">
-    <button id="resetBtn" type="button" class="btn btn-outline">Redefinir</button>
-    <button id="startBtn" type="button" class="btn btn-primary" disabled>START</button>
-    <div class="hint" id="validationHint">Defina valores válidos para habilitar o START.</div>
-  </div>
+  <div class="actions" style="display:flex; align-items:center; margin-top:12px;">
+          <button id="resetBtn" type="button" class="ghost">Redefinir</button>
+          <button id="startBtn" type="button" class="primary" disabled>START</button>
+          <div class="hint" id="validationHint" style="margin-left: 12px;">Defina valores válidos para habilitar o START.</div>
+        </div>
   <br><br>
   <div>
   <h3>Valores Limites do Fabricante</h3>
@@ -283,6 +335,7 @@
         <div class="row">
           <input id="confirmCode" placeholder="Código da máquina" /><button id="confirmRemove" class="primary">Remover</button></div>
       </div>
+
     <div style="text-align:right;margin-top:12px"><button id="closeDetail" class="ghost">Fechar</button></div>
   </div>
 </div>
@@ -291,8 +344,9 @@
 
 <script>
   const startBtn = document.getElementById('startBtn');
-  const inputs = ['voltagem','velocidade','temperatura'];
-
+    const inputs = ['voltagem','velocidade','temperatura'];
+    
+  
   // Validação dos campos
   inputs.forEach(id => {
     document.getElementById(id).addEventListener('input', validate);
@@ -363,7 +417,74 @@ resetBtn.addEventListener('click', async () => {
     alert('Erro ao redefinir: ' + err);
   }
 });
+// --- Funções de Histórico Manual (de machines2.html) ---
+    async function carregarHistorico(machineId) {
+      try {
+        const resp = await fetch(`/api/manual-log/${machineId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
 
+        const data = await resp.json();
+        const listEl = document.getElementById("manualList");
+
+        if (!resp.ok || data.registros?.length === 0) {
+          listEl.innerHTML = "Nenhum registro manual.";
+          return;
+        }
+
+        listEl.innerHTML = data.registros.map(r =>
+          `<div style="margin-bottom:8px;">
+             <b>${new Date(r.timestamp).toLocaleString()}</b><br>
+             ${r.descricao}
+           </div>`
+        ).join("");
+
+      } catch (err) {
+        console.error("Erro ao carregar histórico:", err);
+        document.getElementById("manualList").innerHTML = "Erro ao carregar.";
+      }
+    }
+
+
+    async function salvarRegistroManual(machineId) {
+      const descricao = document.getElementById("manualDesc").value.trim();
+
+      if (!descricao) {
+        showToast(msg('fillDesc'), true);
+        return;
+      }
+
+      try {
+        const resp = await fetch('/api/manual-log', {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${localStorage.getItem("token")}`
+          },
+          body: JSON.stringify({
+            maquina_id: machineId,
+            descricao,
+            timestamp_local: new Date().toISOString()
+          })
+        });
+
+        const data = await resp.json();
+
+        if (resp.ok) {
+          showToast(msg('recordSaved'));
+          document.getElementById("manualDesc").value = "";
+          carregarHistorico(machineId);
+        } else {
+          showToast(data.error || "Erro ao salvar.", true);
+        }
+
+      } catch (err) {
+        console.error("Erro ao salvar registro manual:", err);
+        showToast('Erro de conexão.', true);
+      }
+    }
 
     // Elements
     const menuBtn = document.getElementById('menuBtn');
@@ -573,6 +694,14 @@ function openDetail(machine){
     safeSetText('remContent', UI[lang].remContent);
     const confirmInput = document.getElementById('confirmCode'); if(confirmInput) confirmInput.value = '';
     detailBg.style.display = 'flex';
+
+    // Carregar o histórico quando abrir (de machines2.html)
+        carregarHistorico(machine._id);
+
+        // Ativar botão de salvar manual (de machines2.html)
+        document.getElementById("saveManual").onclick = () => {
+            salvarRegistroManual(machine._id);
+        };
 
   // attach confirm remove handler specific to this machine
   // attach confirm remove handler specific to this machine

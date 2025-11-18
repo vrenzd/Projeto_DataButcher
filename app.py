@@ -343,5 +343,75 @@ def reset_machine(current_user_id, machine_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/manual-log', methods=['POST'])
+@token_required
+def registrar_manual(current_user_id):
+    try:
+        data = request.get_json()
+
+        maquina_id = data.get('maquina_id')
+        descricao = data.get('descricao')
+
+        if not maquina_id or not descricao:
+            return jsonify({'error': 'Campos maquina_id e descricao são obrigatórios'}), 400
+
+        # Verificar se a máquina pertence ao usuário
+        maquina = db_gerencia.find_one('maquinas', {
+            '_id': ObjectId(maquina_id),
+            'id_usuario': ObjectId(current_user_id)
+        })
+
+        if not maquina:
+            return jsonify({'error': 'Máquina não encontrada ou não pertence ao usuário'}), 404
+
+        registro = {
+            'maquina_id': ObjectId(maquina_id),
+            'usuario_id': ObjectId(current_user_id),
+            'descricao': descricao,
+            'timestamp': datetime.datetime.now()
+        }
+
+        resultado = db_gerencia.insert_one('registros_manuais', registro)
+
+        return jsonify({
+            'message': 'Registro manual salvo com sucesso!',
+            'registro_id': str(resultado.inserted_id),
+            'timestamp': registro['timestamp'].isoformat()
+        }), 201
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/manual-log/<machine_id>', methods=['GET'])
+@token_required
+def listar_registros_manuais(current_user_id, machine_id):
+    try:
+        # Primeiro, verifica se a máquina pertence ao usuário
+        maquina = db_gerencia.find_one('maquinas', {
+            '_id': ObjectId(machine_id),
+            'id_usuario': ObjectId(current_user_id)
+        })
+
+        if not maquina:
+            return jsonify({'error': 'Máquina não encontrada ou não pertence ao usuário'}), 404
+
+        # Buscar registros ordenados por data (mais recente primeiro)
+        registros = db_gerencia.find('registros_manuais', {
+            'maquina_id': ObjectId(machine_id)
+        }).sort('timestamp', -1)
+
+        lista_registros = []
+        for registro in registros:
+            lista_registros.append({
+                'registro_id': str(registro['_id']),
+                'descricao': registro['descricao'],
+                'timestamp': registro['timestamp'].isoformat()
+            })
+
+        return jsonify({'registros': lista_registros}), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
