@@ -1,2 +1,0 @@
-Para enviar as solicitações pela API -> POSTMAN WEB
-Para acessar o servidor -> Ngrok

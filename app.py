@@ -10,6 +10,8 @@ from bson.objectid import ObjectId
 import os
 from dotenv import load_dotenv
 import sys
+from flask_mqtt import Mqtt
+import json
 
 # Carrega variáveis do .env
 sys.path.append(os.path.dirname(__file__))
@@ -18,6 +20,15 @@ load_dotenv()
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'chave-secreta-padrao')
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'jwt-chave-secreta')
+#Colocar no .env
+app.config['MQTT_BROKER_URL'] = 'broker.hivemq.com'  # Use o broker público
+app.config['MQTT_BROKER_PORT'] = 1883  # Porta padrão do MQTT
+app.config['MQTT_USERNAME'] = ''  # Não precisa para brokers públicos
+app.config['MQTT_PASSWORD'] = ''  # Não precisa para brokers públicos
+app.config['MQTT_KEEPALIVE'] = 5  # Segundos para manter a conexão viva
+app.config['MQTT_TLS_ENABLED'] = False  # Use False para brokers de teste sem criptografia
+mqtt_client = Mqtt(app)
+
 CORS(app, supports_credentials=True)  # Habilita CORS para o frontend
 
 usuario = os.getenv('MONGO_USER')
@@ -57,6 +68,17 @@ def token_required(f):
         
         return f(current_user_id, *args, **kwargs)
     return decorated
+
+#BROKER
+@mqtt_client.on_message()
+def handle_mqtt_message(client, userdata, message):
+    # Esta função é chamada quando o Flask recebe uma mensagem
+    # Útil se o ESP32 enviar respostas ou status via MQTT
+    data = dict(
+        topic=message.topic,
+        payload=message.payload.decode()
+    )
+    print('Mensagem MQTT recebida no servidor: ', data)
 
 # Rotas de Autenticação
 
@@ -127,18 +149,25 @@ def add_machine(current_user_id):
         nome_maquina = data.get('nome_maquina')
         codigo = data.get('codigo')
         
+        if not codigo:
+            return jsonify({'error': 'Código da máquina é obrigatório'}), 400
+
         if not nome_maquina:
             return jsonify({'error': 'Nome da máquina é obrigatório'}), 400
         
-        machine_id = gerencia_maquinas.adicionar_maquina(nome_maquina, ObjectId(current_user_id))
+        mensagem, sucesso = gerencia_maquinas.validar_maquina(codigo, nome_maquina, ObjectId(current_user_id))
         
-        if machine_id:
+        if sucesso:
             return jsonify({
-                'message': 'Máquina adicionada com sucesso!',
-                'machine_id': str(machine_id)
+                'message': mensagem,
             }), 201
         else:
-            return jsonify({'error': 'Erro ao adicionar máquina'}), 400
+            if "não encontrada" in mensagem:
+                return jsonify({'error': mensagem}), 404
+            elif "já está em uso" in mensagem:
+                return jsonify({'error': mensagem}), 409 # HTTP 409 Conflict é perfeito para isso
+            else:
+                return jsonify({'error': mensagem}), 500
             
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -212,7 +241,6 @@ def receive_sensor_data():
         # Preparar documento para inserção
         sensor_data = {
             'maquina_id': ObjectId(data['maquina_id']),
-            'usuario_id': maquina['id_usuario'],
             'dados_sensor': {
                 'tensao': data['tensao'],
                 'vibracao': data['vibracao'],
@@ -220,7 +248,6 @@ def receive_sensor_data():
                 'rpm': data['rpm']
             },
             'timestamp': datetime.datetime.utcnow(),
-            'metadata': data.get('metadata', {})
         }
         
         # Inserir na coleção de dados dos sensores
@@ -310,6 +337,20 @@ def start_machine(current_user_id, machine_id):
             },
             'status': 'iniciada'
         }
+
+        topic = f"maquinas/{machine_id}/comandos"
+        payload = json.dumps({
+            "comando": "start",
+            "parametros": {
+                "voltagem": voltagem,
+                "velocidade": velocidade,
+                "temperatura_max": data.get('temperatura')
+            }
+        })
+
+        mqtt_client.publish(topic, payload)
+        print(f"Comando publicado no tópico '{topic}': {payload}")
+
         db_gerencia.update_one('maquinas', {'_id': ObjectId(machine_id)}, novos_valores)
 
         # Aqui poderia enviar comando real para o sensor via MQTT ou outro protocolo
