@@ -367,7 +367,7 @@
   // Envio para API ao clicar em START
   startBtn.addEventListener('click', async () => {
     const token = localStorage.getItem('token'); // JWT salvo após login
-    const machineId = 'ID_DA_MAQUINA'; // Substituir dinamicamente pelo ID real
+    const machineId = currentMachine._id; // Substituir dinamicamente pelo ID real
     const body = {
       voltagem: parseInt(document.getElementById('voltagem').value),
       velocidade: parseInt(document.getElementById('velocidade').value),
@@ -402,7 +402,7 @@ resetBtn.addEventListener('click', async () => {
 
   // Opcional: enviar para API
   const token = localStorage.getItem('token');
-  const machineId = 'ID_DA_MAQUINA'; // Substituir dinamicamente
+  const machineId = currentMachine._id; // Substituir dinamicamente
   try {
     const res = await fetch(`/api/machines/${machineId}/reset`, {
       method: 'POST',
@@ -509,6 +509,7 @@ resetBtn.addEventListener('click', async () => {
 
     // Data
     let machines = [];
+    let currentMachine = null
     let cameraStream = null;
 
     // UI strings
@@ -585,7 +586,7 @@ resetBtn.addEventListener('click', async () => {
             const card = document.createElement('div');
             card.className = 'machine-card';
             // 🔑 Usando 'nome_maquina' e '_id' (API) ao invés de 'name' e 'code' (Mock)
-            const machineIDShort = m._id ? escapeHtml(m._id.substring(0, 8)) + '...' : 'N/A';
+            const machineIDShort = m._id;
             card.innerHTML = `<h4>${escapeHtml(m.nome_maquina || 'Máquina sem Nome')}</h4><small>ID: ${machineIDShort}</small>`;
             card.onclick = () => openDetail(m);
             machinesEl.appendChild(card);
@@ -628,7 +629,7 @@ resetBtn.addEventListener('click', async () => {
       },
       body: JSON.stringify({
         nome_maquina: name,
-        codigo_qr: code
+        codigo: code
       })
     });
 
@@ -683,6 +684,7 @@ cancelAdd.addEventListener('click', closeAddModal);
 function openDetail(machine){
     // 🔑 Usando 'nome_maquina' da API
     detailTitle.textContent = machine.nome_maquina || '';
+    currentMachine = machine
     
     // set tab labels and content based on language
     const lang = localStorage.getItem('db_lang') || detectLang();
