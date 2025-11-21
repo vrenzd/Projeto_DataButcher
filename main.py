@@ -5,6 +5,7 @@ from bson.objectid import ObjectId
 import os
 import sys
 from dotenv import load_dotenv
+import qrcode
 
 sys.path.append(os.path.dirname(__file__))
 load_dotenv()
@@ -15,6 +16,15 @@ senha = os.getenv('MONGO_PASS')
 MONGO_URI = f'mongodb+srv://{usuario}:{senha}@databutcher.ckzgenn.mongodb.net/'
 DB_NAME = os.getenv('DB_NAME')
 
+def gerar_qrcode(codigo):
+    cod = codigo
+    qr = qrcode.QRCode()
+    qr.add_data(cod)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    nome_arquivo = f'./Qrcode/qrcode_{cod}.png'
+    img.save(nome_arquivo)
+    print(f'QR Code salvo com sucesso.')
 
 def main():
     db_gerencia = GerenciadorMongoDB(MONGO_URI, DB_NAME)
@@ -95,6 +105,7 @@ def main():
                 nome_empresa = input('Empresa: ')
                 modelo = input('Modelo: ')
                 id = gerencia_maquinas.adicionar_maquina(nome_empresa, modelo)
+                gerar_qrcode(id)
                 print(id)
 
             case '0':

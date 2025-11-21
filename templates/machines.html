@@ -261,6 +261,7 @@
         <input id="machineCode" type="text" placeholder="Código / QR" required />
         <button type="button" class="ghost" id="scanQR">📷 Ler QR Code</button>
         <video id="video" playsinline></video>
+        <canvas id="qrCanvas" style="display: none;"></canvas>
         <div class="row" style="justify-content:flex-end">
           <button type="button" class="ghost" id="cancelAdd">Cancelar</button>
           <button type="submit" class="primary">Adicionar</button>
@@ -341,7 +342,7 @@
 </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <script>
   const startBtn = document.getElementById('startBtn');
     const inputs = ['voltagem','velocidade','temperatura'];
@@ -613,69 +614,51 @@ resetBtn.addEventListener('click', async () => {
     }
     function closeAddModal(){ addModal.style.display = 'none'; stopCamera(); }
 
-    addForm.addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const name = document.getElementById('machineName').value.trim();
-  const code = document.getElementById('machineCode').value.trim();
-  
-  if(!name || !code) return showToast(msg('fillFields'));
+    addForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('machineName').value.trim();
+    const code = document.getElementById('machineCode').value.trim();
 
-  try {
-    const response = await fetch('/api/machines', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify({
-        nome_maquina: name,
-        codigo: code
-      })
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      showToast('Máquina adicionada com sucesso!');
-      
-      // ✅ Faz uma nova requisição para buscar os dados completos da máquina recém-criada
-        const machineId = data.machine_id || (data.machine && data.machine._id);
-
-        if (machineId) {
-          try {
-            const getResp = await fetch(`/api/machines/${machineId}`, {
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-              }
-            });
-            const machineData = await getResp.json();
-
-            if (getResp.ok) {
-              machines.push(machineData);
-              renderMachines();
-            } else {
-              console.warn('Falha ao buscar dados completos da máquina:', machineData);
-              // fallback: adiciona algo básico para não quebrar a UI
-              machines.push({ _id: machineId, nome_maquina: name });
-              renderMachines();
-            }
-          } catch (err) {
-            console.error('Erro ao buscar nova máquina:', err);
-            machines.push({ _id: machineId, nome_maquina: name });
-            renderMachines();
-          }
-        }
-
-      addForm.reset();
-      closeAddModal();
-    } else {
-      console.error("Erro do servidor:", data);
-      showToast(`Erro ao adicionar: ${data.error || 'Falha desconhecida.'}`, true);
+    if (!name || !code) {
+        return showToast(msg('fillFields'), true);
     }
-  } catch (error) {
-    console.error('Erro ao adicionar máquina:', error);
-    showToast('Erro de conexão com o servidor.', true);
-  }
+
+    try {
+        const response = await fetch('/api/machines', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({
+                nome_maquina: name,
+                codigo: code
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            showToast(data.message || 'Máquina associada com sucesso!');
+
+            const novaMaquina = data.machine;
+
+            if (novaMaquina && novaMaquina._id) {
+                machines.push(novaMaquina);
+                renderMachines();
+            } else {
+                console.error("API retornou sucesso, mas sem o objeto da máquina.");
+                window.location.reload();
+            }
+            addForm.reset();
+            closeAddModal();
+        } else {
+            showToast(`Erro: ${data.error || 'Falha desconhecida.'}`, true);
+        }
+    } catch (error) {
+        console.error('Erro de conexão ao associar máquina:', error);
+        showToast('Erro de conexão com o servidor.', true);
+    }
 });
 
 cancelAdd.addEventListener('click', closeAddModal);
@@ -795,26 +778,52 @@ function openDetail(machine){
     menuBtn.addEventListener('click', ()=> sidebar.classList.add('open'));
     closeSidebar.addEventListener('click', ()=> sidebar.classList.remove('open'));
 
-    // QR Code scanning (BarcodeDetector if available)
-    async function startCamera(){
-      try{
+    // QR Code scanning
+    async function startCamera() {
+    console.log("Iniciando a câmera com a biblioteca jsQR (compatibilidade máxima)...");
+
+    const videoEl = document.getElementById('video');
+    const canvasEl = document.getElementById('qrCanvas');
+    const canvasCtx = canvasEl.getContext('2d');
+
+    try {
         cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        video.srcObject = cameraStream; await video.play();
-        if('BarcodeDetector' in window){
-          const detector = new BarcodeDetector({ formats: ['qr_code'] });
-          const loop = async()=>{
-            if(video.readyState >= 2){
-              try{ const codes = await detector.detect(video); if(codes.length){ document.getElementById('machineCode').value = codes[0].rawValue; stopCamera(); return; } }
-              catch(e){ /* continue */ }
-            }
-            if(cameraStream) requestAnimationFrame(loop);
-          };
-          loop();
-        } else {
-          showToast(msg('noQR'));
-        }
-      } catch(err){ showToast(msg('camErr')); }
+        videoEl.srcObject = cameraStream;
+        videoEl.play();
+        console.log("Câmera ativa e vídeo sendo reproduzido.");
+        requestAnimationFrame(tick);
+
+    } catch (err) {
+        console.error("ERRO ao iniciar a câmera:", err);
+        showToast(msg('camErr'));
     }
+
+    function tick() {
+        if (!cameraStream || !cameraStream.active) {
+            return;
+        }
+        if (videoEl.readyState === videoEl.HAVE_ENOUGH_DATA) {
+            canvasEl.height = videoEl.videoHeight;
+            canvasEl.width = videoEl.videoWidth;
+            canvasCtx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+            
+            const imageData = canvasCtx.getImageData(0, 0, canvasEl.width, canvasEl.height);
+            
+            const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+            if (code) {
+                console.log("QR Code detectado pela jsQR:", code.data);
+
+                document.getElementById('machineCode').value = code.data;
+                showToast("QR Code lido com sucesso!");
+                stopCamera();
+                return;
+            }
+        }
+
+        requestAnimationFrame(tick);
+    }
+  }
     function stopCamera(){ if(cameraStream){ cameraStream.getTracks().forEach(t=>t.stop()); cameraStream = null; } video.pause(); video.srcObject = null; }
     scanQR.addEventListener('click', startCamera);
 

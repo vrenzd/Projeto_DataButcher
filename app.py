@@ -102,7 +102,7 @@ def register():
         if not nome_usuario or not senha:
             return jsonify({'error': 'Usuário e senha são obrigatórios'}), 400
         
-        if gerencia_usuario.cadastrar_usuario(nome_usuario, senha, email, empresa):
+        if gerencia_usuario.cadastrar_usuario(nome_usuario, senha, empresa, email):
             return jsonify({'message': 'Usuário cadastrado com sucesso!'}), 201
         else: 
             return jsonify({'error': 'Erro ao cadastrar usuário'}), 400
@@ -160,6 +160,11 @@ def add_machine(current_user_id):
         if sucesso:
             return jsonify({
                 'message': mensagem,
+                'machine': {
+                    '_id': codigo, # O ID da máquina que foi associada
+                    'nome_maquina': nome_maquina, # O nome que o usuário deu
+                    'id_usuario': current_user_id # O ID do usuário atual
+                }
             }), 201
         else:
             if "não encontrada" in mensagem:
