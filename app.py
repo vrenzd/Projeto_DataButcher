@@ -82,6 +82,11 @@ def handle_mqtt_message(client, userdata, message):
 
 # Rotas de Autenticação
 
+# Health check
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    return jsonify({'status': 'healthy', 'message': 'API está funcionando!'}), 200
+
 @app.route('/')
 def home():
     return render_template('TelaInicial.html')
@@ -184,20 +189,19 @@ def list_machines(current_user_id):
         maquinas = gerencia_maquinas.listar_maquinas_por_usuario(ObjectId(current_user_id))
         if maquinas is None:
             return jsonify({'error': 'Erro ao buscar máquinas'}), 500
-        
         maquina_list = []
         try:
             for maquina in maquinas:
                 maquina_list.append({
                     '_id': str(maquina['_id']),
                     'nome_maquina': maquina.get('nome_maquina',''),
-                    'id_usuario': str(maquina.get('id_usuario', ''))
+                    'id_usuario': str(maquina.get('id_usuario', '')),
+                    'status': maquina.get('status', 'parada')
                 })
             print(f'Processado todas as máquinas deste usuário.')
             return jsonify({'machines': maquina_list}), 200
         finally:
             maquinas.close()
-
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -303,11 +307,6 @@ def get_sensor_data(current_user_id, machine_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# Health check
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    return jsonify({'status': 'healthy', 'message': 'API está funcionando!'}), 200
-
 @app.route('/api/machines/<machine_id>/start', methods=['POST'])
 @token_required
 def start_machine(current_user_id, machine_id):
@@ -360,6 +359,30 @@ def start_machine(current_user_id, machine_id):
 
         # Aqui poderia enviar comando real para o sensor via MQTT ou outro protocolo
         return jsonify({'message': 'Máquina iniciada com sucesso!', 'parametros': novos_valores}), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/machines/<machine_id>/stop', methods=['POST'])
+@token_required
+def stop_machine(current_user_id, machine_id):
+    try:
+        # Verificar se a máquina pertence ao usuário
+        maquina = db_gerencia.find_one('maquinas', {'_id': ObjectId(machine_id), 'id_usuario': ObjectId(current_user_id)})
+        if not maquina:
+            return jsonify({'error': 'Máquina não encontrada'}), 404
+
+        # --- LÓGICA DO MQTT ---
+        topic = f"maquinas/{machine_id}/comandos"
+        payload = json.dumps({"comando": "stop"}) # A mensagem é simples
+
+        mqtt_client.publish(topic, payload)
+        print(f"Comando de parada publicado no tópico '{topic}'")
+
+        # Atualiza o status da máquina no banco de dados
+        db_gerencia.update_one('maquinas', {'_id': ObjectId(machine_id)}, {'status': 'parada'})
+
+        return jsonify({'message': 'Comando de parada enviado com sucesso!'}), 200
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500

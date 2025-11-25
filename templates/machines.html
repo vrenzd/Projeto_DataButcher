@@ -224,6 +224,12 @@
       border: 0;
     }
 
+    .machine-card.running {
+      
+      border-color: #22c55e; 
+      box-shadow: 0 0 15px rgba(34, 197, 94, 0.6);
+}
+
   </style>
 </head>
 <body>
@@ -310,7 +316,7 @@
   
   <div class="actions" style="display:flex; align-items:center; margin-top:12px;">
           <button id="resetBtn" type="button" class="ghost">Redefinir</button>
-          <button id="startBtn" type="button" class="primary" disabled>START</button>
+          <button id="toggleMachineBtn" type="button" class="primary" disabled>START</button>
           <div class="hint" id="validationHint" style="margin-left: 12px;">Defina valores válidos para habilitar o START.</div>
         </div>
   <br><br>
@@ -344,10 +350,20 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <script>
-  const startBtn = document.getElementById('startBtn');
-    const inputs = ['voltagem','velocidade','temperatura'];
-    
+  const toggleBtn = document.getElementById('toggleMachineBtn');
+  const inputs = ['voltagem','velocidade','temperatura'];
+  let isMachineRunning = false;  
   
+  function updateToggleButton() {
+    if (isMachineRunning) {
+        toggleBtn.textContent = 'STOP';
+        toggleBtn.style.background = 'linear-gradient(90deg, #888, #666)'; // Cor cinza para 'stop'
+    } else {
+        toggleBtn.textContent = 'START';
+        toggleBtn.style.background = 'linear-gradient(90deg, var(--accent), #fb923c)'; // Cor original para 'start'
+    }
+}
+
   // Validação dos campos
   inputs.forEach(id => {
     document.getElementById(id).addEventListener('input', validate);
@@ -359,38 +375,70 @@
     const t = parseInt(document.getElementById('temperatura').value);
 
     if (v>=220 && v<=380 && rpm>=500 && rpm<=3000 && t>=20 && t<=120) {
-      startBtn.disabled = false;
+      toggleBtn.disabled = false;
     } else {
-      startBtn.disabled = true;
+      toggleBtn.disabled = true;
     }
   }
 
   // Envio para API ao clicar em START
-  startBtn.addEventListener('click', async () => {
-    const token = localStorage.getItem('token'); // JWT salvo após login
-    const machineId = currentMachine._id; // Substituir dinamicamente pelo ID real
-    const body = {
-      voltagem: parseInt(document.getElementById('voltagem').value),
-      velocidade: parseInt(document.getElementById('velocidade').value),
-      temperatura: parseInt(document.getElementById('temperatura').value)
-    };
+  toggleBtn.addEventListener('click', async () => {
+    if (!currentMachine || !currentMachine._id) {
+        alert('Erro: Nenhuma máquina selecionada.');
+        return;
+    }
+
+    const token = localStorage.getItem('token');
+    const machineId = currentMachine._id;
+    const endpoint = isMachineRunning ? 'stop' : 'start';
+    
+    // Prepara o body apenas se for para iniciar a máquina
+    let body = {};
+    if (endpoint === 'start') {
+        body = {
+            voltagem: parseInt(document.getElementById('voltagem').value),
+            velocidade: parseInt(document.getElementById('velocidade').value),
+            temperatura: parseInt(document.getElementById('temperatura').value)
+        };
+    }
 
     try {
-      const res = await fetch(`/api/machines/${machineId}/start`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(body)
-      });
+        const res = await fetch(`/api/machines/${machineId}/${endpoint}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            // Envia o body apenas se não estiver vazio
+            body: Object.keys(body).length > 0 ? JSON.stringify(body) : null
+        });
 
-      const data = await res.json();
-      alert(data.message || data.error);
+        const data = await res.json();
+        alert(data.message || data.error);
+
+        if (res.ok) {
+            
+            isMachineRunning = !isMachineRunning;
+            updateToggleButton();
+            
+            
+            currentMachine.status = isMachineRunning ? 'iniciada' : 'parada';
+            const machineCardEl = document.getElementById(`machine-card-${machineId}`);
+            if (machineCardEl) {
+                if (isMachineRunning) {
+                    
+                    machineCardEl.classList.add('running');
+                } else {
+                    
+                    machineCardEl.classList.remove('running');
+                }
+            }
+        }
+
     } catch (err) {
-      alert('Erro ao enviar dados: ' + err);
+        alert('Erro ao enviar comando: ' + err);
     }
-  });
+});
 
   const resetBtn = document.getElementById('resetBtn');
 
@@ -586,13 +634,18 @@ resetBtn.addEventListener('click', async () => {
         machines.forEach(m => {
             const card = document.createElement('div');
             card.className = 'machine-card';
-            // 🔑 Usando 'nome_maquina' e '_id' (API) ao invés de 'name' e 'code' (Mock)
+            card.id = `machine-card-${m._id}`;
+
+            if (m.status === 'iniciada') { 
+              card.classList.add('running');
+        }
+            
             const machineIDShort = m._id;
             card.innerHTML = `<h4>${escapeHtml(m.nome_maquina || 'Máquina sem Nome')}</h4><small>ID: ${machineIDShort}</small>`;
             card.onclick = () => openDetail(m);
             machinesEl.appendChild(card);
         });
-        // Add-card (single, follows the list)
+        
         const addCard = document.createElement('div');
         addCard.className = 'add-card';
         addCard.textContent = t('addMachine');
@@ -666,8 +719,12 @@ cancelAdd.addEventListener('click', closeAddModal);
 // Detail with independent sub-tabs
 function openDetail(machine){
     // 🔑 Usando 'nome_maquina' da API
-    detailTitle.textContent = machine.nome_maquina || '';
+    
     currentMachine = machine
+    detailTitle.textContent = machine.nome_maquina || '';
+
+    isMachineRunning = (machine.status === 'iniciada');
+    updateToggleButton();
     
     // set tab labels and content based on language
     const lang = localStorage.getItem('db_lang') || detectLang();
