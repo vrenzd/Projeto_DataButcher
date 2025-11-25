@@ -44,6 +44,7 @@ def main():
         print('1 - Cadastrar Usuário')
         print('2 - Login')
         print('3 - Excluir Usuário')
+        print('8 - Cadastro de máquina por empresa')
         if id_usuario_atual:
             print('4 - Adicionar Máquina')
             print('5 - Listar Minhas Máquinas')

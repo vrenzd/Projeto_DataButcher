@@ -392,7 +392,6 @@
     const machineId = currentMachine._id;
     const endpoint = isMachineRunning ? 'stop' : 'start';
     
-    // Prepara o body apenas se for para iniciar a máquina
     let body = {};
     if (endpoint === 'start') {
         body = {
@@ -402,43 +401,110 @@
         };
     }
 
+    // Desabilita o botão e mostra um feedback de "carregando"
+    toggleBtn.disabled = true;
+    toggleBtn.textContent = 'ENVIANDO...';
+
     try {
+        // 1. Tenta enviar o comando para a API
         const res = await fetch(`/api/machines/${machineId}/${endpoint}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
-            // Envia o body apenas se não estiver vazio
             body: Object.keys(body).length > 0 ? JSON.stringify(body) : null
         });
 
         const data = await res.json();
-        alert(data.message || data.error);
 
-        if (res.ok) {
-            
-            isMachineRunning = !isMachineRunning;
-            updateToggleButton();
-            
-            
-            currentMachine.status = isMachineRunning ? 'iniciada' : 'parada';
-            const machineCardEl = document.getElementById(`machine-card-${machineId}`);
-            if (machineCardEl) {
-                if (isMachineRunning) {
-                    
-                    machineCardEl.classList.add('running');
-                } else {
-                    
-                    machineCardEl.classList.remove('running');
-                }
-            }
+        // 2. Se a API recusou o comando (ex: erro de validação), mostra o erro e para.
+        if (!res.ok) {
+            alert(`Erro ao enviar comando: ${data.error}`);
+            toggleBtn.disabled = false; // Reabilita o botão
+            updateToggleButton(); // Restaura a aparência (START/STOP)
+            return;
         }
 
+        // 3. Se o comando foi enviado com sucesso, inicia o processo de verificação
+        toggleBtn.textContent = 'AGUARDANDO...';
+        console.log("Comando enviado com sucesso. Aguardando confirmação do dispositivo...");
+        
+        // O status que esperamos que o dispositivo confirme
+        const expectedStatus = (endpoint === 'start') ? 'iniciada' : 'parada';
+        checkMachineStatus(machineId, expectedStatus);
+
     } catch (err) {
-        alert('Erro ao enviar comando: ' + err);
+        // Erro de rede (ex: servidor offline)
+        alert('Erro de conexão ao enviar comando: ' + err);
+        toggleBtn.disabled = false;
+        updateToggleButton();
     }
 });
+
+async function checkMachineStatus(machineId, expectedStatus) {
+    let attempts = 0;
+    const maxAttempts = 10; // Tenta por 10 segundos
+    const interval = 1000;  // a cada 1 segundo
+
+    const intervalId = setInterval(async () => {
+        // Se exceder o número de tentativas, para e avisa o usuário
+        if (attempts >= maxAttempts) {
+            clearInterval(intervalId);
+            alert("O dispositivo não respondeu a tempo. Verifique se ele está online.");
+            toggleBtn.disabled = false;
+            updateToggleButton(); // Volta ao estado visual anterior
+            return;
+        }
+
+        try {
+            // Busca a lista de máquinas atualizada para verificar o status
+            const res = await fetch('/api/machines', {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                // Se a busca falhar, para o processo
+                throw new Error(data.error || "Falha ao buscar status.");
+            }
+
+            const machine = data.machines.find(m => m._id === machineId);
+
+            // VERIFICA SE O STATUS NO BANCO DE DADOS MUDOU
+            if (machine && machine.status === expectedStatus) {
+                // SUCESSO! O dispositivo confirmou a ação.
+                clearInterval(intervalId);
+                console.log(`Confirmação recebida! Novo estado: ${machine.status}`);
+                
+                // Atualiza o estado da UI com base na "fonte da verdade" (o banco de dados)
+                currentMachine.status = machine.status;
+                isMachineRunning = (machine.status === 'iniciada');
+                
+                // Reabilita o botão e atualiza sua aparência
+                toggleBtn.disabled = false;
+                updateToggleButton();
+                
+                // Atualiza a cor do card
+                const machineCardEl = document.getElementById(`machine-card-${machineId}`);
+                if (machineCardEl) {
+                    isMachineRunning ? machineCardEl.classList.add('running') : machineCardEl.classList.remove('running');
+                }
+
+            } else {
+                // O status ainda não mudou, tenta novamente na próxima vez
+                attempts++;
+                console.log(`Tentativa ${attempts}: Aguardando estado '${expectedStatus}'... Status atual: ${machine ? machine.status : 'desconhecido'}`);
+            }
+        } catch (err) {
+            // Trata erros durante o polling (ex: rede caiu no meio)
+            clearInterval(intervalId);
+            alert("Erro ao verificar o status da máquina: " + err.message);
+            toggleBtn.disabled = false;
+            updateToggleButton();
+        }
+    }, interval);
+}
 
   const resetBtn = document.getElementById('resetBtn');
 

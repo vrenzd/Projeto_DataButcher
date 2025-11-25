@@ -20,7 +20,7 @@ load_dotenv()
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'chave-secreta-padrao')
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'jwt-chave-secreta')
-#Colocar no .env
+
 app.config['MQTT_BROKER_URL'] = 'broker.hivemq.com'  # Use o broker público
 app.config['MQTT_BROKER_PORT'] = 1883  # Porta padrão do MQTT
 app.config['MQTT_USERNAME'] = ''  # Não precisa para brokers públicos
@@ -34,13 +34,11 @@ CORS(app, supports_credentials=True)  # Habilita CORS para o frontend
 usuario = os.getenv('MONGO_USER')
 senha = os.getenv('MONGO_PASS')
 # Inicialização do MongoDB
-
 MONGO_URI = f'mongodb+srv://{usuario}:{senha}@databutcher.ckzgenn.mongodb.net/'
 DB_NAME = os.getenv('DB_NAME')
 
 db_gerencia = GerenciadorMongoDB(MONGO_URI, DB_NAME)
 db_gerencia.conectar()
-
 # Inicializa gerenciadores
 gerencia_usuario = GerenciaUsuario(db_gerencia)
 gerencia_maquinas = GerenciadorMaquinas(db_gerencia)
@@ -72,17 +70,38 @@ def token_required(f):
 #BROKER
 @mqtt_client.on_message()
 def handle_mqtt_message(client, userdata, message):
-    # Esta função é chamada quando o Flask recebe uma mensagem
-    # Útil se o ESP32 enviar respostas ou status via MQTT
-    data = dict(
-        topic=message.topic,
-        payload=message.payload.decode()
-    )
-    print('Mensagem MQTT recebida no servidor: ', data)
+    payload_str = message.payload.decode()
+    if not payload_str:
+        print(f"Aviso: Mensagem vazia recebida no tópico '{message.topic}'. Ignorando.")
+        return
+    try:
+        payload_data = json.loads(payload_str)
+        topic_parts = message.topic.split('/')
+
+        if len(topic_parts) == 3 and topic_parts[2] == 'status':
+            machine_id = topic_parts[1]
+            new_state = payload_data.get('state')
+
+            if machine_id and new_state:
+                update_fields = {}
+
+                if new_state in ['iniciada', 'parada']:
+                        update_fields['status'] = new_state
+                        print(f"Recebida atualização de estado para máquina {machine_id}: {new_state}")
+                    
+                update_fields['last_heartbeat'] = datetime.datetime.now(datetime.timezone.utc)
+                db_gerencia.update_one(
+                    'maquinas',
+                    {'_id': ObjectId(machine_id)},
+                    update_fields
+                )
+    except json.JSONDecodeError:
+        print(f"Aviso: Mensagem malformada (não é JSON) recebida no tópico '{message.topic}': {payload_str}. Ignorando.")
+    except Exception as e:
+        print(f"Erro inesperado ao processar mensagem MQTT: {e}")
 
 # Rotas de Autenticação
 
-# Health check
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({'status': 'healthy', 'message': 'API está funcionando!'}), 200
@@ -123,10 +142,9 @@ def login():
         senha = data.get('senha')
         
         if gerencia_usuario.verificar_usuario(nome_usuario, senha):
-            # Buscar usuário para pegar o ID
+            
             user = db_gerencia.find_one('usuarios', {'nome_usuario': nome_usuario})
             
-            # Gerar token JWT
             token = jwt.encode({
                 'user_id': str(user['_id']),
                 'nome_usuario': nome_usuario,
@@ -167,7 +185,7 @@ def add_machine(current_user_id):
                 'message': mensagem,
                 'machine': {
                     '_id': codigo, # O ID da máquina que foi associada
-                    'nome_maquina': nome_maquina, # O nome que o usuário deu
+                    'nome_maquina': nome_maquina, # O nome que o usuário escolheu
                     'id_usuario': current_user_id # O ID do usuário atual
                 }
             }), 201
@@ -175,7 +193,7 @@ def add_machine(current_user_id):
             if "não encontrada" in mensagem:
                 return jsonify({'error': mensagem}), 404
             elif "já está em uso" in mensagem:
-                return jsonify({'error': mensagem}), 409 # HTTP 409 Conflict é perfeito para isso
+                return jsonify({'error': mensagem}), 409
             else:
                 return jsonify({'error': mensagem}), 500
             
@@ -209,7 +227,7 @@ def list_machines(current_user_id):
 @token_required
 def remove_machine(current_user_id, machine_id):
     try:
-        # Verificar se a máquina pertence ao usuário antes de remover
+
         maquina = db_gerencia.find_one('maquinas', {
             '_id': ObjectId(machine_id),
             'id_usuario': ObjectId(current_user_id)
@@ -236,18 +254,15 @@ def receive_sensor_data():
     try:
         data = request.get_json()
         
-        # Validações básicas
         required_fields = ['maquina_id', 'tensao', 'vibracao', 'temperatura', 'rpm']
         for field in required_fields:
             if field not in data:
                 return jsonify({'error': f'Campo {field} é obrigatório'}), 400
-        
-        # Verificar se a máquina existe
+
         maquina = db_gerencia.find_one('maquinas', {'_id': ObjectId(data['maquina_id'])})
         if not maquina:
             return jsonify({'error': 'Máquina não encontrada'}), 404
         
-        # Preparar documento para inserção
         sensor_data = {
             'maquina_id': ObjectId(data['maquina_id']),
             'dados_sensor': {
@@ -259,7 +274,6 @@ def receive_sensor_data():
             'timestamp': datetime.datetime.utcnow(),
         }
         
-        # Inserir na coleção de dados dos sensores
         resultado = db_gerencia.insert_one('dados_sensores', sensor_data)
         
         if resultado:
@@ -289,7 +303,6 @@ def get_sensor_data(current_user_id, machine_id):
         if not maquina:
             return jsonify({'error': 'Máquina não encontrada'}), 404
         
-        # Buscar dados dos sensores (últimas 100 leituras)
         dados_sensores = db_gerencia.find('dados_sensores', {
             'maquina_id': ObjectId(machine_id)
         }).sort('timestamp', -1).limit(100)
@@ -311,12 +324,27 @@ def get_sensor_data(current_user_id, machine_id):
 @token_required
 def start_machine(current_user_id, machine_id):
     try:
+        # 1. Busca a máquina e suas informações (como antes)
+        maquina = db_gerencia.find_one('maquinas', {
+            '_id': ObjectId(machine_id),
+            'id_usuario': ObjectId(current_user_id)
+        })
+        if not maquina:
+            return jsonify({'error': 'Máquina não encontrada'}), 404
+        
+        last_heartbeat = maquina.get('last_heartbeat')
+        
+        if last_heartbeat.tzinfo is None:
+            last_heartbeat = last_heartbeat.replace(tzinfo=datetime.timezone.utc)
+
+        if not last_heartbeat or (datetime.datetime.now(datetime.timezone.utc) - last_heartbeat > datetime.timedelta(seconds=45)):
+            return jsonify({'error': 'O dispositivo está offline ou não responde.'}), 409 # 409 Conflict
+
         data = request.get_json()
         voltagem = data.get('voltagem')
         velocidade = data.get('velocidade')
         temperatura = data.get('temperatura')
 
-        # Limites (exemplo)
         if not (220 <= voltagem <= 380):
             return jsonify({'error': 'Voltagem fora do limite (220-380V)'}), 400
         if not (500 <= velocidade <= 3000):
@@ -324,41 +352,19 @@ def start_machine(current_user_id, machine_id):
         if not (20 <= temperatura <= 120):
             return jsonify({'error': 'Temperatura fora do limite (20-120°C)'}), 400
 
-        # Verificar se máquina pertence ao usuário
-        maquina = db_gerencia.find_one('maquinas', {
-            '_id': ObjectId(machine_id),
-            'id_usuario': ObjectId(current_user_id)
-        })
-        if not maquina:
-            return jsonify({'error': 'Máquina não encontrada'}), 404
-
-        # Atualizar parâmetros
-        novos_valores = {
-            'configuracoes': {
-                'voltagem': voltagem,
-                'velocidade': velocidade,
-                'temperatura': temperatura
-            },
-            'status': 'iniciada'
-        }
-
         topic = f"maquinas/{machine_id}/comandos"
         payload = json.dumps({
             "comando": "start",
             "parametros": {
                 "voltagem": voltagem,
                 "velocidade": velocidade,
-                "temperatura_max": data.get('temperatura')
+                "temperatura_max": temperatura
             }
         })
-
         mqtt_client.publish(topic, payload)
-        print(f"Comando publicado no tópico '{topic}': {payload}")
-
-        db_gerencia.update_one('maquinas', {'_id': ObjectId(machine_id)}, novos_valores)
-
-        # Aqui poderia enviar comando real para o sensor via MQTT ou outro protocolo
-        return jsonify({'message': 'Máquina iniciada com sucesso!', 'parametros': novos_valores}), 200
+        print(f"Comando de START publicado para máquina online: {machine_id}")
+        
+        return jsonify({'message': 'Comando de início enviado. Aguardando confirmação do dispositivo.'}), 202
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -367,22 +373,25 @@ def start_machine(current_user_id, machine_id):
 @token_required
 def stop_machine(current_user_id, machine_id):
     try:
-        # Verificar se a máquina pertence ao usuário
+        
         maquina = db_gerencia.find_one('maquinas', {'_id': ObjectId(machine_id), 'id_usuario': ObjectId(current_user_id)})
         if not maquina:
             return jsonify({'error': 'Máquina não encontrada'}), 404
 
-        # --- LÓGICA DO MQTT ---
+        last_heartbeat = maquina.get('last_heartbeat')
+        
+        if last_heartbeat.tzinfo is None:
+            last_heartbeat = last_heartbeat.replace(tzinfo=datetime.timezone.utc)
+
+        if not last_heartbeat or (datetime.datetime.now(datetime.timezone.utc) - last_heartbeat > datetime.timedelta(seconds=45)):
+            return jsonify({'error': 'O dispositivo está offline ou não responde.'}), 409
+
         topic = f"maquinas/{machine_id}/comandos"
-        payload = json.dumps({"comando": "stop"}) # A mensagem é simples
-
+        payload = json.dumps({"comando": "stop"})
         mqtt_client.publish(topic, payload)
-        print(f"Comando de parada publicado no tópico '{topic}'")
+        print(f"Comando de STOP publicado para máquina online: {machine_id}")
 
-        # Atualiza o status da máquina no banco de dados
-        db_gerencia.update_one('maquinas', {'_id': ObjectId(machine_id)}, {'status': 'parada'})
-
-        return jsonify({'message': 'Comando de parada enviado com sucesso!'}), 200
+        return jsonify({'message': 'Comando de parada enviado. Aguardando confirmação do dispositivo.'}), 202
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -398,7 +407,6 @@ def reset_machine(current_user_id, machine_id):
         if not maquina:
             return jsonify({'error': 'Máquina não encontrada'}), 404
 
-        # Valores padrão
         novos_valores = {
             'configuracoes': {
                 'voltagem': 220,
@@ -424,7 +432,6 @@ def registrar_manual(current_user_id):
         if not maquina_id or not descricao:
             return jsonify({'error': 'Campos maquina_id e descricao são obrigatórios'}), 400
 
-        # Verificar se a máquina pertence ao usuário
         maquina = db_gerencia.find_one('maquinas', {
             '_id': ObjectId(maquina_id),
             'id_usuario': ObjectId(current_user_id)
@@ -455,7 +462,6 @@ def registrar_manual(current_user_id):
 @token_required
 def listar_registros_manuais(current_user_id, machine_id):
     try:
-        # Primeiro, verifica se a máquina pertence ao usuário
         maquina = db_gerencia.find_one('maquinas', {
             '_id': ObjectId(machine_id),
             'id_usuario': ObjectId(current_user_id)
@@ -464,7 +470,6 @@ def listar_registros_manuais(current_user_id, machine_id):
         if not maquina:
             return jsonify({'error': 'Máquina não encontrada ou não pertence ao usuário'}), 404
 
-        # Buscar registros ordenados por data (mais recente primeiro)
         registros = db_gerencia.find('registros_manuais', {
             'maquina_id': ObjectId(machine_id)
         }).sort('timestamp', -1)
@@ -483,4 +488,7 @@ def listar_registros_manuais(current_user_id, machine_id):
         return jsonify({'error': str(e)}), 500
     
 if __name__ == '__main__':
+    with app.app_context():
+        mqtt_client.subscribe('maquinas/+/status')
+        print("Subscrito ao tópico de status de todas as máquinas.")
     app.run(host='0.0.0.0', port=5000, debug=True)
