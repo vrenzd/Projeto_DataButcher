@@ -69,6 +69,167 @@
     @media (max-width:880px){
       .machines{grid-template-columns:1fr}
     }
+
+    
+    
+    input[type="number"] {
+      font-size: 16px;            /* Ajuste do tamanho */
+      color: #fff;                /* Texto branco */
+      background: transparent;    /* Fundo transparente */
+      border: none;               /* Remove borda padrão */
+      border-bottom: 2px solid #fff; /* Linha branca */
+      padding: 5px;
+      width: 150px;               /* Ajuste largura */
+    }
+
+    input[type="number"]:focus {
+      border-bottom: 2px solid #fb923c; /* Linha verde ao focar */
+      outline: none;                    /* Remove contorno padrão */
+    }
+    
+    input[type="number"]::placeholder {
+      color: rgba(255,255,255,0.6); /* Placeholder branco com opacidade */
+    }
+
+    input[type="number"]:focus {
+      border-color: #fb923c;        /* Cor da borda ao focar */
+      box-shadow: 0 0 8px rgba(175, 134, 76, 0.5);
+    }
+
+    
+    #validationHint {
+      font-size: 12px;      /* Deixa a fonte menor */
+      color: #ccc;          /* Cor mais suave */
+      display: block;       /* Garante que fique em linha separada */
+      margin-top: 8px;      /* Espaço acima */
+      border: none;         /* Remove qualquer borda */
+      background: transparent; /* Fundo transparente */
+
+
+    }
+
+    /* Botão START */
+    #startBtn {
+      width: 100px;
+      padding: 3px;
+      background: linear-gradient(90deg, var(--accent), #fb923c); 
+      color: #061022;                                            
+      border: 0;                                                
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;                                      
+      cursor: pointer;
+      transition: 0.3s;
+      margin-left: 8px;
+    }
+
+    #startBtn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    #startBtn:hover:enabled {
+      filter: brightness(1.1);
+    }
+
+    /* Botão Redefinir */
+    #resetBtn {
+      width: 100px;
+      padding: 3px;
+      background: transparent;
+      color: #fff;
+      border: 2px solid var(--accent);     
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    #resetBtn {
+      /* Estilo mantido do machines1 para o botão de remoção */
+      background: linear-gradient(90deg,var(--accent),#fb923c);
+      color:#061022;
+      font-weight:700;
+      border: 0;
+
+    }
+    #confirmCode {
+      font-size: 16px;           
+      color: var(--text);                
+      background: transparent;    
+      border: none;               
+      border-bottom: 2px solid var(--muted); 
+      padding: 5px;
+      width: 150px; 
+      transition: border-bottom 0.3s;
+    }
+
+    #confirmRemove {
+      width: 100px;
+      padding: 3px;
+      background: transparent;       
+      color: var(--text);                  
+      border: 2px solid var(--accent);     
+      border-radius: 8px;            
+      font-size: 13px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    #saveManual {
+      width: 100px;
+      padding: 3px;
+      background: transparent;       
+      color: var(--text);                  
+      border: 2px solid var(--accent);     
+      border-radius: 8px;            
+      font-size: 13px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    #confirmCode:focus {
+      border-bottom: 2px solid var(--accent);
+      outline: none;                    
+    }
+
+    #confirmCode::placeholder {
+      color: var(--muted); 
+    }
+
+    #confirmRemove {
+      /* Estilo mantido do machines1 para o botão de remoção */
+      background: linear-gradient(90deg,var(--accent),#fb923c);
+      color:#061022;
+      font-weight:700;
+      border: 0;
+    }
+    
+    /* Adiciona padding para o textarea de registro manual */
+    #manualDesc {
+        width: 100%;
+        height: 70px;
+        padding: 8px;
+        border-radius: 8px;
+        background: transparent;
+        border: 1px solid var(--glass);
+        color: var(--text);
+        resize: vertical;
+    }
+
+    #saveManual {
+      /* Estilo mantido do machines1 para o botão de remoção */
+      background: linear-gradient(90deg,var(--accent),#fb923c);
+      color:#061022;
+      font-weight:700;
+      border: 0;
+    }
+
+    .machine-card.running {
+      
+      border-color: #22c55e; 
+      box-shadow: 0 0 15px rgba(34, 197, 94, 0.6);
+}
+
   </style>
 </head>
 <body>
@@ -106,6 +267,7 @@
         <input id="machineCode" type="text" placeholder="Código / QR" required />
         <button type="button" class="ghost" id="scanQR">📷 Ler QR Code</button>
         <video id="video" playsinline></video>
+        <canvas id="qrCanvas" style="display: none;"></canvas>
         <div class="row" style="justify-content:flex-end">
           <button type="button" class="ghost" id="cancelAdd">Cancelar</button>
           <button type="submit" class="primary">Adicionar</button>
@@ -123,19 +285,322 @@
         <button data-tab="conf" id="tabConf">Configurações</button>
         <button data-tab="rem" id="tabRem">Remover</button>
       </div>
-      <div id="hist" class="tab-content active"><p class="muted" id="histContent">Histórico de uso e reparos (mock).</p></div>
-      <div id="conf" class="tab-content"><p class="muted" id="confContent">Configurações (voltagem, velocidade, temperatura) — mock.</p></div>
-      <div id="rem" class="tab-content">
-        <p class="muted" id="remContent">Digite o código da máquina para confirmar a remoção:</p>
-        <div class="row"><input id="confirmCode" placeholder="Código da máquina" /><button id="confirmRemove" class="primary">Remover</button></div>
+
+      <div id="hist" class="tab-content active">
+        <textarea id="manualDesc" placeholder="Descreva o registro..."></textarea>
+        <button id="saveManual" class="primary" style=>Salvar Registro</button>
+        <h4 style="margin-top:15px;">Histórico:</h4>
+        <div id="manualList" class="muted">Carregando...</div>
       </div>
-      <div style="text-align:right;margin-top:12px"><button id="closeDetail" class="ghost">Fechar</button></div>
+
+
+      <div id="conf" class="tab-content"><p class="muted" id="confContent">Configurações (voltagem, velocidade, temperatura) — mock.</p><br><br>
+      <div class="row">
+    <div>
+      <label for="voltagem">Voltagem (V)</label>
+      <input id="voltagem" type="number" step="1" />
+      
+      <div class="error" id="voltagemErr"></div>
     </div>
+    <div>
+      <label for="velocidade">Velocidade (RPM)</label>
+      <input id="velocidade" type="number" step="50" />
+      <div class="error" id="velocidadeErr"></div>
+    </div>
+    <div>
+      <label for="temperatura">Temperatura (°C)</label>
+      <input id="temperatura" type="number" step="1" />
+    <div class="error" id="temperaturaErr"></div>
+  </div><br>
+
+  
+  <div class="actions" style="display:flex; align-items:center; margin-top:12px;">
+          <button id="resetBtn" type="button" class="ghost">Redefinir</button>
+          <button id="toggleMachineBtn" type="button" class="primary" disabled>START</button>
+          <div class="hint" id="validationHint" style="margin-left: 12px;">Defina valores válidos para habilitar o START.</div>
+        </div>
+  <br><br>
+  <div>
+  <h3>Valores Limites do Fabricante</h3>
+  <label>Voltagem (V): 
+    <input type="number" id="voltagemLimit" min="220" max="380" placeholder="220-380">
+  </label><br>
+
+  <label>Velocidade (RPM): 
+    <input type="number" id="velocidadeLimit" min="500" max="3000" placeholder="500-3000">
+  </label><br>
+
+  <label>Temperatura (°C): 
+    <input type="number" id="temperaturaLimit" min="20" max="120" placeholder="20-120">
+  </label><br>
+</div>
+<div class="actions">
+    <button id="resetBtn" type="button" class="btn btn-outline">Redefinir</button>
   </div>
+  </div> </div> <div id="rem" class="tab-content">
+        <p class="muted" id="remContent">Digite o código da máquina para confirmar a remoção:</p><br>
+        <div class="row">
+          <input id="confirmCode" placeholder="Código da máquina" /><button id="confirmRemove" class="primary">Remover</button></div>
+      </div>
+
+    <div style="text-align:right;margin-top:12px"><button id="closeDetail" class="ghost">Fechar</button></div>
+  </div>
+</div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script>
+  const toggleBtn = document.getElementById('toggleMachineBtn');
+  const inputs = ['voltagem','velocidade','temperatura'];
+  let isMachineRunning = false;  
+  
+  function updateToggleButton() {
+    if (isMachineRunning) {
+        toggleBtn.textContent = 'STOP';
+        toggleBtn.style.background = 'linear-gradient(90deg, #888, #666)'; // Cor cinza para 'stop'
+    } else {
+        toggleBtn.textContent = 'START';
+        toggleBtn.style.background = 'linear-gradient(90deg, var(--accent), #fb923c)'; // Cor original para 'start'
+    }
+}
 
-  <script>
+  // Validação dos campos
+  inputs.forEach(id => {
+    document.getElementById(id).addEventListener('input', validate);
+  });
+
+  function validate() {
+    const v = parseInt(document.getElementById('voltagem').value);
+    const rpm = parseInt(document.getElementById('velocidade').value);
+    const t = parseInt(document.getElementById('temperatura').value);
+
+    if (v>=220 && v<=380 && rpm>=500 && rpm<=3000 && t>=20 && t<=120) {
+      toggleBtn.disabled = false;
+    } else {
+      toggleBtn.disabled = true;
+    }
+  }
+
+  // Envio para API ao clicar em START
+  toggleBtn.addEventListener('click', async () => {
+    if (!currentMachine || !currentMachine._id) {
+        alert('Erro: Nenhuma máquina selecionada.');
+        return;
+    }
+
+    const token = localStorage.getItem('token');
+    const machineId = currentMachine._id;
+    const endpoint = isMachineRunning ? 'stop' : 'start';
+    
+    let body = {};
+    if (endpoint === 'start') {
+        body = {
+            voltagem: parseInt(document.getElementById('voltagem').value),
+            velocidade: parseInt(document.getElementById('velocidade').value),
+            temperatura: parseInt(document.getElementById('temperatura').value)
+        };
+    }
+
+    // Desabilita o botão e mostra um feedback de "carregando"
+    toggleBtn.disabled = true;
+    toggleBtn.textContent = 'ENVIANDO...';
+
+    try {
+        // 1. Tenta enviar o comando para a API
+        const res = await fetch(`/api/machines/${machineId}/${endpoint}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: Object.keys(body).length > 0 ? JSON.stringify(body) : null
+        });
+
+        const data = await res.json();
+
+        // 2. Se a API recusou o comando (ex: erro de validação), mostra o erro e para.
+        if (!res.ok) {
+            alert(`Erro ao enviar comando: ${data.error}`);
+            toggleBtn.disabled = false; // Reabilita o botão
+            updateToggleButton(); // Restaura a aparência (START/STOP)
+            return;
+        }
+
+        // 3. Se o comando foi enviado com sucesso, inicia o processo de verificação
+        toggleBtn.textContent = 'AGUARDANDO...';
+        console.log("Comando enviado com sucesso. Aguardando confirmação do dispositivo...");
+        
+        // O status que esperamos que o dispositivo confirme
+        const expectedStatus = (endpoint === 'start') ? 'iniciada' : 'parada';
+        checkMachineStatus(machineId, expectedStatus);
+
+    } catch (err) {
+        // Erro de rede (ex: servidor offline)
+        alert('Erro de conexão ao enviar comando: ' + err);
+        toggleBtn.disabled = false;
+        updateToggleButton();
+    }
+});
+
+async function checkMachineStatus(machineId, expectedStatus) {
+    let attempts = 0;
+    const maxAttempts = 10; // Tenta por 10 segundos
+    const interval = 1000;  // a cada 1 segundo
+
+    const intervalId = setInterval(async () => {
+        // Se exceder o número de tentativas, para e avisa o usuário
+        if (attempts >= maxAttempts) {
+            clearInterval(intervalId);
+            alert("O dispositivo não respondeu a tempo. Verifique se ele está online.");
+            toggleBtn.disabled = false;
+            updateToggleButton(); // Volta ao estado visual anterior
+            return;
+        }
+
+        try {
+            // Busca a lista de máquinas atualizada para verificar o status
+            const res = await fetch('/api/machines', {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                // Se a busca falhar, para o processo
+                throw new Error(data.error || "Falha ao buscar status.");
+            }
+
+            const machine = data.machines.find(m => m._id === machineId);
+
+            // VERIFICA SE O STATUS NO BANCO DE DADOS MUDOU
+            if (machine && machine.status === expectedStatus) {
+                // SUCESSO! O dispositivo confirmou a ação.
+                clearInterval(intervalId);
+                console.log(`Confirmação recebida! Novo estado: ${machine.status}`);
+                
+                // Atualiza o estado da UI com base na "fonte da verdade" (o banco de dados)
+                currentMachine.status = machine.status;
+                isMachineRunning = (machine.status === 'iniciada');
+                
+                // Reabilita o botão e atualiza sua aparência
+                toggleBtn.disabled = false;
+                updateToggleButton();
+                
+                // Atualiza a cor do card
+                const machineCardEl = document.getElementById(`machine-card-${machineId}`);
+                if (machineCardEl) {
+                    isMachineRunning ? machineCardEl.classList.add('running') : machineCardEl.classList.remove('running');
+                }
+
+            } else {
+                // O status ainda não mudou, tenta novamente na próxima vez
+                attempts++;
+                console.log(`Tentativa ${attempts}: Aguardando estado '${expectedStatus}'... Status atual: ${machine ? machine.status : 'desconhecido'}`);
+            }
+        } catch (err) {
+            // Trata erros durante o polling (ex: rede caiu no meio)
+            clearInterval(intervalId);
+            alert("Erro ao verificar o status da máquina: " + err.message);
+            toggleBtn.disabled = false;
+            updateToggleButton();
+        }
+    }, interval);
+}
+
+  const resetBtn = document.getElementById('resetBtn');
+
+resetBtn.addEventListener('click', async () => {
+  // Resetar valores no frontend
+  document.getElementById('voltagem').value = '';
+  document.getElementById('velocidade').value = '';
+  document.getElementById('temperatura').value = '';
+  startBtn.disabled = true;
+
+  // Opcional: enviar para API
+  const token = localStorage.getItem('token');
+  const machineId = currentMachine._id; // Substituir dinamicamente
+  try {
+    const res = await fetch(`/api/machines/${machineId}/reset`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    const data = await res.json();
+    alert(data.message || data.error);
+  } catch (err) {
+    alert('Erro ao redefinir: ' + err);
+  }
+});
+// --- Funções de Histórico Manual (de machines2.html) ---
+    async function carregarHistorico(machineId) {
+      try {
+        const resp = await fetch(`/api/manual-log/${machineId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        const data = await resp.json();
+        const listEl = document.getElementById("manualList");
+
+        if (!resp.ok || data.registros?.length === 0) {
+          listEl.innerHTML = "Nenhum registro manual.";
+          return;
+        }
+
+        listEl.innerHTML = data.registros.map(r =>
+          `<div style="margin-bottom:8px;">
+             <b>${new Date(r.timestamp).toLocaleString()}</b><br>
+             ${r.descricao}
+           </div>`
+        ).join("");
+
+      } catch (err) {
+        console.error("Erro ao carregar histórico:", err);
+        document.getElementById("manualList").innerHTML = "Erro ao carregar.";
+      }
+    }
+
+
+    async function salvarRegistroManual(machineId) {
+      const descricao = document.getElementById("manualDesc").value.trim();
+
+      if (!descricao) {
+        showToast(msg('fillDesc'), true);
+        return;
+      }
+
+      try {
+        const resp = await fetch('/api/manual-log', {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${localStorage.getItem("token")}`
+          },
+          body: JSON.stringify({
+            maquina_id: machineId,
+            descricao,
+            timestamp_local: new Date().toISOString()
+          })
+        });
+
+        const data = await resp.json();
+
+        if (resp.ok) {
+          showToast(msg('recordSaved'));
+          document.getElementById("manualDesc").value = "";
+          carregarHistorico(machineId);
+        } else {
+          showToast(data.error || "Erro ao salvar.", true);
+        }
+
+      } catch (err) {
+        console.error("Erro ao salvar registro manual:", err);
+        showToast('Erro de conexão.', true);
+      }
+    }
+
     // Elements
     const menuBtn = document.getElementById('menuBtn');
     const sidebar = document.getElementById('sidebar');
@@ -159,6 +624,7 @@
 
     // Data
     let machines = [];
+    let currentMachine = null
     let cameraStream = null;
 
     // UI strings
@@ -234,13 +700,18 @@
         machines.forEach(m => {
             const card = document.createElement('div');
             card.className = 'machine-card';
-            // 🔑 Usando 'nome_maquina' e '_id' (API) ao invés de 'name' e 'code' (Mock)
-            const machineIDShort = m._id ? escapeHtml(m._id.substring(0, 8)) + '...' : 'N/A';
+            card.id = `machine-card-${m._id}`;
+
+            if (m.status === 'iniciada') { 
+              card.classList.add('running');
+        }
+            
+            const machineIDShort = m._id;
             card.innerHTML = `<h4>${escapeHtml(m.nome_maquina || 'Máquina sem Nome')}</h4><small>ID: ${machineIDShort}</small>`;
             card.onclick = () => openDetail(m);
             machinesEl.appendChild(card);
         });
-        // Add-card (single, follows the list)
+        
         const addCard = document.createElement('div');
         addCard.className = 'add-card';
         addCard.textContent = t('addMachine');
@@ -262,100 +733,118 @@
     }
     function closeAddModal(){ addModal.style.display = 'none'; stopCamera(); }
 
-    addForm.addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const name = document.getElementById('machineName').value.trim();
-  const code = document.getElementById('machineCode').value.trim();
-  
-  if(!name || !code) return showToast(msg('fillFields'));
+    addForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('machineName').value.trim();
+    const code = document.getElementById('machineCode').value.trim();
 
-  try {
-    const response = await fetch('/api/machines', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify({
-        nome_maquina: name,
-        codigo_qr: code
-      })
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      showToast('Máquina adicionada com sucesso!');
-      
-      // 👇 Aceita tanto { machine: {...} } quanto {...}
-      const newMachine = data.machine || data;
-      machines.push(newMachine);
-
-      renderMachines();
-      addForm.reset();
-      closeAddModal();
-    } else {
-      console.error("Erro do servidor:", data);
-      showToast(`Erro ao adicionar: ${data.error || 'Falha desconhecida.'}`, true);
+    if (!name || !code) {
+        return showToast(msg('fillFields'), true);
     }
-  } catch (error) {
-    console.error('Erro ao adicionar máquina:', error);
-    showToast('Erro de conexão com o servidor.', true);
-  }
+
+    try {
+        const response = await fetch('/api/machines', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({
+                nome_maquina: name,
+                codigo: code
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            showToast(data.message || 'Máquina associada com sucesso!');
+
+            const novaMaquina = data.machine;
+
+            if (novaMaquina && novaMaquina._id) {
+                machines.push(novaMaquina);
+                renderMachines();
+            } else {
+                console.error("API retornou sucesso, mas sem o objeto da máquina.");
+                window.location.reload();
+            }
+            addForm.reset();
+            closeAddModal();
+        } else {
+            showToast(`Erro: ${data.error || 'Falha desconhecida.'}`, true);
+        }
+    } catch (error) {
+        console.error('Erro de conexão ao associar máquina:', error);
+        showToast('Erro de conexão com o servidor.', true);
+    }
 });
 
-    cancelAdd.addEventListener('click', closeAddModal);
+cancelAdd.addEventListener('click', closeAddModal);
 
-    // Detail with independent sub-tabs
-    function openDetail(machine){
-        // 🔑 Usando 'nome_maquina' da API
-        detailTitle.textContent = machine.nome_maquina || '';
-        
-        // set tab labels and content based on language
-        const lang = localStorage.getItem('db_lang') || detectLang();
-        safeSetText('tabHist', UI[lang].hist);
-        safeSetText('tabConf', UI[lang].conf);
-        safeSetText('tabRem', UI[lang].rem);
-        safeSetText('histContent', UI[lang].histContent);
-        safeSetText('confContent', UI[lang].confContent);
-        safeSetText('remContent', UI[lang].remContent);
-        const confirmInput = document.getElementById('confirmCode'); if(confirmInput) confirmInput.value = '';
-        detailBg.style.display = 'flex';
+// Detail with independent sub-tabs
+function openDetail(machine){
+    // 🔑 Usando 'nome_maquina' da API
+    
+    currentMachine = machine
+    detailTitle.textContent = machine.nome_maquina || '';
 
-      // attach confirm remove handler specific to this machine
-      // attach confirm remove handler specific to this machine
-        confirmRemove.onclick = async ()=>{
-            const input = document.getElementById('confirmCode').value.trim();
-            // 🔑 Usamos o '_id' como código de confirmação (a chave para a API)
-            const machineIDToConfirm = machine._id; 
-            
-            // Permite confirmar com o ID completo, os 8 primeiros caracteres ou o nome da máquina
-            if(input === machineIDToConfirm || input === machineIDToConfirm.substring(0, 8) || input === machine.nome_maquina){
-                try {
-                    const response = await fetch(`/api/machines/${machine._id}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Authorization': `Bearer ${localStorage.getItem('token')}`
-                        }
-                    });
+    isMachineRunning = (machine.status === 'iniciada');
+    updateToggleButton();
+    
+    // set tab labels and content based on language
+    const lang = localStorage.getItem('db_lang') || detectLang();
+    safeSetText('tabHist', UI[lang].hist);
+    safeSetText('tabConf', UI[lang].conf);
+    safeSetText('tabRem', UI[lang].rem);
+    safeSetText('histContent', UI[lang].histContent);
+    safeSetText('confContent', UI[lang].confContent);
+    safeSetText('remContent', UI[lang].remContent);
+    const confirmInput = document.getElementById('confirmCode'); if(confirmInput) confirmInput.value = '';
+    detailBg.style.display = 'flex';
 
-                    const data = await response.json();
+    // Carregar o histórico quando abrir (de machines2.html)
+        carregarHistorico(machine._id);
 
-                    if(response.ok) {
-                        machines = machines.filter(x => x._id !== machine._id);
-                        renderMachines();
-                        detailBg.style.display='none';
-                        showToast(msg('removed'));
-                    } else {
-                        showToast(`Erro ao remover: ${data.error || 'Falha na remoção da API.'}`, true);
-                    }
-                } catch(error) {
-                    showToast('Erro de conexão ao remover máquina.', true);
-                }
-            } else {
-                showToast(msg('wrongCode'), true);
-            }
+        // Ativar botão de salvar manual (de machines2.html)
+        document.getElementById("saveManual").onclick = () => {
+            salvarRegistroManual(machine._id);
         };
+
+  // attach confirm remove handler specific to this machine
+  // attach confirm remove handler specific to this machine
+    confirmRemove.onclick = async ()=>{
+        const input = document.getElementById('confirmCode').value.trim();
+        // 🔑 Usamos o '_id' como código de confirmação (a chave para a API)
+        const machineIDToConfirm = machine._id; 
+        
+        // Permite confirmar com o ID completo, os 8 primeiros caracteres ou o nome da máquina
+        if(input === machineIDToConfirm || input === machineIDToConfirm.substring(0, 8)){
+            try {
+                const response = await fetch(`/api/machines/${machine._id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if(response.ok) {
+                    machines = machines.filter(x => x._id !== machine._id);
+                    renderMachines();
+                    detailBg.style.display='none';
+                    showToast(msg('removed'));
+                } else {
+                    showToast(`Erro ao remover: ${data.error || 'Falha na remoção da API.'}`, true);
+                }
+            } catch(error) {
+                showToast('Erro de conexão ao remover máquina.', true);
+            }
+        } else {
+            showToast(msg('wrongCode'), true);
+        }
+    };
 
       // tab behaviour
       const tabButtons = document.querySelectorAll('.tabs button');
@@ -412,26 +901,52 @@
     menuBtn.addEventListener('click', ()=> sidebar.classList.add('open'));
     closeSidebar.addEventListener('click', ()=> sidebar.classList.remove('open'));
 
-    // QR Code scanning (BarcodeDetector if available)
-    async function startCamera(){
-      try{
+    // QR Code scanning
+    async function startCamera() {
+    console.log("Iniciando a câmera com a biblioteca jsQR (compatibilidade máxima)...");
+
+    const videoEl = document.getElementById('video');
+    const canvasEl = document.getElementById('qrCanvas');
+    const canvasCtx = canvasEl.getContext('2d');
+
+    try {
         cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        video.srcObject = cameraStream; await video.play();
-        if('BarcodeDetector' in window){
-          const detector = new BarcodeDetector({ formats: ['qr_code'] });
-          const loop = async()=>{
-            if(video.readyState >= 2){
-              try{ const codes = await detector.detect(video); if(codes.length){ document.getElementById('machineCode').value = codes[0].rawValue; stopCamera(); return; } }
-              catch(e){ /* continue */ }
-            }
-            if(cameraStream) requestAnimationFrame(loop);
-          };
-          loop();
-        } else {
-          showToast(msg('noQR'));
-        }
-      } catch(err){ showToast(msg('camErr')); }
+        videoEl.srcObject = cameraStream;
+        videoEl.play();
+        console.log("Câmera ativa e vídeo sendo reproduzido.");
+        requestAnimationFrame(tick);
+
+    } catch (err) {
+        console.error("ERRO ao iniciar a câmera:", err);
+        showToast(msg('camErr'));
     }
+
+    function tick() {
+        if (!cameraStream || !cameraStream.active) {
+            return;
+        }
+        if (videoEl.readyState === videoEl.HAVE_ENOUGH_DATA) {
+            canvasEl.height = videoEl.videoHeight;
+            canvasEl.width = videoEl.videoWidth;
+            canvasCtx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+            
+            const imageData = canvasCtx.getImageData(0, 0, canvasEl.width, canvasEl.height);
+            
+            const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+            if (code) {
+                console.log("QR Code detectado pela jsQR:", code.data);
+
+                document.getElementById('machineCode').value = code.data;
+                showToast("QR Code lido com sucesso!");
+                stopCamera();
+                return;
+            }
+        }
+
+        requestAnimationFrame(tick);
+    }
+  }
     function stopCamera(){ if(cameraStream){ cameraStream.getTracks().forEach(t=>t.stop()); cameraStream = null; } video.pause(); video.srcObject = null; }
     scanQR.addEventListener('click', startCamera);
 

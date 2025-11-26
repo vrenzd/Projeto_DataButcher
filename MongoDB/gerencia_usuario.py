@@ -7,7 +7,7 @@ class GerenciaUsuario:
         self.db_gerencia = db_gerencia
         self.colecao_nomes = "usuarios"
 
-    def cadastrar_usuario(self, nome_usuario, senha):
+    def cadastrar_usuario(self, nome_usuario, senha, empresa, email):
         if self.db_gerencia.find_one(
             self.colecao_nomes, {"nome_usuario": nome_usuario}
         ):
@@ -18,6 +18,8 @@ class GerenciaUsuario:
         dados_usuario = {
             "nome_usuario": nome_usuario,
             "senha": senha_criptografada.decode("utf-8"),
+            "empresa": empresa,
+            "email": email
         }
         resultado = self.db_gerencia.insert_one(self.colecao_nomes, dados_usuario)
         if resultado and resultado.inserted_id:
