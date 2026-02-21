@@ -69,13 +69,8 @@ O sistema utiliza um fluxo de autenticação baseado em **JSON Web Tokens (JWT)*
 3.  Em caso de sucesso, um JWT é gerado, contendo o `user_id` e a data de expiração.
 4.  O token é retornado ao cliente, que deve incluí-lo no cabeçalho `Authorization: Bearer <token>` em todas as requisições subsequentes às rotas protegidas.
 
-\`\`\`mermaid
+```mermaid
 sequenceDiagram
-    participant C as Cliente (Frontend)
-    participant F as Flask API
-    participant GU as GerenciaUsuario
-    participant DB as GerenciadorMongoDB
-
     C->>F: POST /api/auth/login (user, pass)
     F->>GU: verificar_usuario(user, pass)
     GU->>DB: find_one('usuarios', user)
@@ -103,7 +98,7 @@ sequenceDiagram
     else Token Inválido/Expirado
         F-->>C: 401 Unauthorized (Token inválido/expirado)
     end
-\`\`\`
+```
 
 ## ⚙️ Fluxo de Dados IoT (MQTT e API REST)
 
@@ -114,19 +109,14 @@ O projeto utiliza dois canais principais para receber dados dos dispositivos IoT
 
 ### Detalhe do Fluxo de Dados IoT
 
-\`\`\`mermaid
+```mermaid
 sequenceDiagram
-    participant D as Dispositivo IoT (Arduino)
-    participant B as Broker MQTT (HiveMQ)
-    participant F as Flask API (Cliente MQTT)
-    participant DB as GerenciadorMongoDB
-
     D->>B: PUBLISH /databutcher/<machine_id>/status (JSON: {state: "iniciada" | "parada"})
     B->>F: Mensagem Recebida (handle_mqtt_message)
     F->>F: Extrai machine_id e new_state
     F->>DB: update_one('maquinas', machine_id, {status: new_state, last_heartbeat: now})
     DB-->>F: Confirmação de Atualização
-    
+
     D->>F: POST /api/sensor-data (JSON: {maquina_id, tensao, vibracao, temperatura, rpm})
     F->>F: Valida campos obrigatórios
     F->>DB: find_one('maquinas', maquina_id)
@@ -139,7 +129,7 @@ sequenceDiagram
         DB-->>F: None
         F-->>D: 404 Not Found (Máquina não encontrada)
     end
-\`\`\`
+```
 
 ## 📂 Estrutura do Projeto
 
@@ -179,7 +169,7 @@ Projeto_DataButcher/
 
 Crie um arquivo `.env` na raiz do projeto com as seguintes variáveis:
 
-\`\`\`dotenv
+```dotenv
 # Credenciais do MongoDB
 MONGO_USER="seu_usuario_mongo"
 MONGO_PASS="sua_senha_mongo"
@@ -188,15 +178,15 @@ DB_NAME="DataButcherDB"
 # Chaves Secretas para Flask e JWT
 SECRET_KEY="sua_chave_secreta_flask"
 JWT_SECRET_KEY="sua_chave_secreta_jwt"
-\`\`\`
+```
 
 ### 2. Instalação de Dependências
 
 Instale as bibliotecas Python necessárias:
 
-\`\`\`bash
+```bash
 pip install Flask flask-cors pymongo python-dotenv paho-mqtt flask-mqtt pyjwt bcrypt qrcode
-\`\`\`
+```
 
 ### 3. Execução
 
@@ -206,17 +196,17 @@ O projeto pode ser executado de duas formas:
 
 Ideal para cadastrar usuários e máquinas iniciais, além de testar a lógica de gerenciamento de forma isolada.
 
-\`\`\`bash
+```bash
 python main.py
-\`\`\`
+```
 
 #### B) Aplicação Web/API (`app.py`)
 
 Inicia o servidor Flask, a API REST e o cliente MQTT para comunicação em tempo real.
 
-\`\`\`bash
+```bash
 python app.py
-\`\`\`
+```
 
 O servidor estará disponível em `http://127.0.0.1:5000/`.
 
