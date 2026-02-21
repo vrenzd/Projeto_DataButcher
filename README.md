@@ -23,33 +23,32 @@ A arquitetura do DataButcher é dividida em três componentes principais: o **Fr
 
 O diagrama a seguir ilustra a visão geral da arquitetura e o fluxo de comunicação entre os componentes:
 
-\`\`\`mermaid
+```mermaid
 graph LR
     subgraph Frontend
-        A[Navegador Web] --> B(Rotas Web/HTML)
+        A[Navegador Web] --> B(Servidor Web/HTML)
+        A -- Requisições AJAX/Fetch --> C(Rotas REST API)
     end
 
-    subgraph Backend (Flask API)
-        B --> C{Rotas REST API}
-        C --> D[Gerenciadores MongoDB]
-        C --> E[Autenticação JWT]
-        F[Cliente MQTT] --> D
+    subgraph "Backend (Flask API)"
+        B --> C
+        C -- Protegido por --> E[Autenticação JWT]
+        C -- Usa --> D[Camada de Acesso a Dados DAO/ODM]
+        F[Cliente MQTT] -- Usa --> D
     end
 
-    subgraph Banco de Dados
-        D --> G[(MongoDB)]
+    subgraph "Banco de Dados"
+        D -- Persiste em --> G[(MongoDB)]
     end
 
     subgraph IoT
-        H[Dispositivo IoT/Arduino] --> I(Publicar Dados Sensores)
+        H[Dispositivo IoT/Arduino] -- Autenticação Credenciais/Certificado --> I(Publicar Dados Sensores)
     end
 
     subgraph Mensageria
-        I --> J[Broker MQTT (HiveMQ)]
-        J --> F
+        I --> J[Broker MQTT HiveMQ]
+        J -- Autenticação --> F
     end
-
-    H --> K[Endpoint /api/sensor-data]
 
     style A fill:#f9f,stroke:#333,stroke-width:2px
     style H fill:#ccf,stroke:#333,stroke-width:2px
@@ -58,11 +57,8 @@ graph LR
 
     %% Fluxo de Dados
     C -- Gerenciamento de Usuários/Máquinas --> D
-    D -- Persistência de Dados --> G
-    F -- Atualização de Status da Máquina --> D
-    K -- Inserção de Dados Brutos --> D
-    B -- Requisições de API --> C
-\`\`\`
+    F -- Atualização de Status/Dados da Máquina --> D
+```
 
 ## 🔒 Fluxo de Autenticação
 
